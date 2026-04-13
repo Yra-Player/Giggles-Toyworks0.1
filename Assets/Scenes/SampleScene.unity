@@ -2503,8 +2503,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9ce1a9e4a08100f4680ff744a2d36994, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  DistanceOpen: 100
-  text: {fileID: 0}
+  DistanceOpen: 3
+  interactionText: {fileID: 0}
 --- !u!1 &613607600
 GameObject:
   m_ObjectHideFlags: 0
