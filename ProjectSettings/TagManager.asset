@@ -6,6 +6,7 @@ TagManager:
   tags:
   - Scanner
   - Interactive
+  - Left_Arm
   layers:
   - Default
   - TransparentFX
