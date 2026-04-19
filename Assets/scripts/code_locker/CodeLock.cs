@@ -1,22 +1,43 @@
 using UnityEngine;
 using UnityEngine.Events;
+using UnityEngine.UI; // Для работы с Image и Text
+using System.Collections;
 
 public class CodeLock : MonoBehaviour
 {
-    public string correctCode = "1111"; // Правильный код
-    public UnityEvent onCodeCorrect;   // Сюда в инспекторе перетащим дверь
+    [Header("Настройки кода")]
+    public string correctCode = "1111";
+    public UnityEvent onCodeCorrect;
+
+    [Header("Интерфейс экрана")]
+    public Text displayTextField;   // Ссылка на текст
+    public Image displayBackground; // Ссылка на фон (Image)
+
+    [Header("Цвета")]
+    public Color defaultColor = Color.gray;
+    public Color winColor = Color.green;
+    public Color failColor = Color.red;
 
     private string _currentInput = "";
+    private bool _isUnlocked = false;
 
-    // Метод, который вызывают кнопки
+    void Start()
+    {
+        UpdateDisplay("ENTER"); // Начальная надпись
+        if (displayBackground != null) displayBackground.color = defaultColor;
+    }
+
     public void AddDigit(string digit)
     {
-        if (_currentInput.Length >= 4) ResetCode(); // Сброс, если ввели лишнее
+        if (_isUnlocked) return;
+
+        // Если это первая цифра после ошибки, сбрасываем цвет фона
+        if (_currentInput == "") displayBackground.color = defaultColor;
 
         _currentInput += digit;
-        Debug.Log("Введено: " + _currentInput);
+        UpdateDisplay(_currentInput);
 
-        if (_currentInput.Length == 4)
+        if (_currentInput.Length >= 4)
         {
             CheckCode();
         }
@@ -26,18 +47,35 @@ public class CodeLock : MonoBehaviour
     {
         if (_currentInput == correctCode)
         {
-            Debug.Log("Код верен!");
-            onCodeCorrect?.Invoke(); // Вызываем открытие двери
+            _isUnlocked = true;
+            displayBackground.color = winColor;
+            UpdateDisplay("OPEN");
+            onCodeCorrect?.Invoke();
         }
         else
         {
-            Debug.Log("Неверный код!");
-            ResetCode();
+            StartCoroutine(ShowErrorRoutine());
         }
     }
 
-    public void ResetCode()
+    // Корутина, чтобы экран мигнул красным и очистился
+    IEnumerator ShowErrorRoutine()
     {
-        _currentInput = "";
+        displayBackground.color = failColor;
+        UpdateDisplay("ERR");
+
+        yield return new WaitForSeconds(1f); // Ждем секунду
+
+        if (!_isUnlocked) // Если за это время ничего не изменилось
+        {
+            _currentInput = "";
+            UpdateDisplay("----");
+            displayBackground.color = defaultColor;
+        }
+    }
+
+    private void UpdateDisplay(string text)
+    {
+        if (displayTextField != null) displayTextField.text = text;
     }
 }
