@@ -7,6 +7,7 @@ public class Gripclaws : MonoBehaviour
     public Transform hand;
     public Transform startPoint;
     public Transform playerTransform;
+    public Camera playerCamera; // Добавьте ссылку на камеру в инспекторе
 
     [Header("Settings")]
     public float speed = 30f;
@@ -14,8 +15,6 @@ public class Gripclaws : MonoBehaviour
 
     private Transform originalParent;
     private Quaternion originalRotation;
-
-    // Эти переменные теперь строго контролируют возможность выстрела
     private bool isFlying = false;
     private bool isAttached = false;
 
@@ -23,9 +22,11 @@ public class Gripclaws : MonoBehaviour
     {
         originalParent = hand.parent;
         originalRotation = hand.localRotation;
-        if (playerTransform == null) playerTransform = transform;
-        if (hand.GetComponent<Rigidbody>()) hand.GetComponent<Rigidbody>().isKinematic = true;
 
+        if (playerTransform == null) playerTransform = transform;
+        if (playerCamera == null) playerCamera = Camera.main; // Авто-поиск камеры
+
+        if (hand.GetComponent<Rigidbody>()) hand.GetComponent<Rigidbody>().isKinematic = true;
         StartCoroutine(InputListener());
     }
 
@@ -47,7 +48,6 @@ public class Gripclaws : MonoBehaviour
     {
         while (true)
         {
-            // Проверка: кнопка нажата И рука НЕ в полете И рука НЕ прикреплена
             if (Input.GetMouseButtonDown(0) && !isFlying && !isAttached)
             {
                 yield return StartCoroutine(ClawRoutine());
@@ -58,52 +58,78 @@ public class Gripclaws : MonoBehaviour
 
     IEnumerator ClawRoutine()
     {
-        isFlying = true; // Блокируем спам в самом начале
-        Vector3 direction = startPoint.forward;
+        isFlying = true;
+
+        // 1. Определяем точку, в которую летим
+        Vector3 targetPoint;
+        Ray ray = playerCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0)); // Луч из центра экрана
+        RaycastHit hitInfo;
+
+        if (Physics.Raycast(ray, out hitInfo, maxDistance))
+        {
+            targetPoint = hitInfo.point;
+        }
+        else
+        {
+            targetPoint = ray.origin + ray.direction * maxDistance;
+        }
+
+        // Вычисляем направление полета от startPoint к найденной точке
+        Vector3 flyDirection = (targetPoint - startPoint.position).normalized;
 
         // --- ВПЕРЕД ---
+        // Летим, пока зажата кнопка И не достигли цели/лимита
         while (Input.GetMouseButton(0) && Vector3.Distance(startPoint.position, hand.position) < maxDistance)
         {
-            hand.position += direction * speed * Time.deltaTime;
+            hand.position += flyDirection * speed * Time.deltaTime;
+
+            // Поворачиваем клешню по направлению полета для визуала
+            hand.forward = flyDirection;
 
             RaycastHit hit;
-            if (Physics.Raycast(hand.position, direction, out hit, 1.5f))
+            // Проверка столкновения во время полета
+            if (Physics.Raycast(hand.position, flyDirection, out hit, 1.0f))
             {
                 if (hit.collider.CompareTag("Scanner") || hit.collider.CompareTag("Interactive"))
                 {
-                    isFlying = false; // Полет окончен
-                    isAttached = true; // Состояние зацепа
+                    isFlying = false;
+                    isAttached = true;
                     hand.position = hit.point;
                     hand.SetParent(hit.transform);
 
-                    // Ждем пока игрок отпустит кнопку
                     while (Input.GetMouseButton(0)) yield return null;
 
-                    isAttached = false; // Отцепились
+                    isAttached = false;
                     hand.SetParent(originalParent);
                     break;
                 }
-                else break; // Врезались в стену
+                else
+                {
+                    // Если врезались в обычную стену — возвращаемся
+                    break;
+                }
             }
+
+            // Если почти долетели до targetPoint, тоже останавливаемся
+            if (Vector3.Distance(hand.position, targetPoint) < 0.5f) break;
+
             yield return null;
         }
 
         // --- ВОЗВРАТ ---
-        isFlying = true; // Снова полет (возвращение), спам запрещен
+        isFlying = true;
         hand.SetParent(originalParent);
 
-        while (Vector3.Distance(hand.position, startPoint.position) > 0.05f || Quaternion.Angle(hand.localRotation, originalRotation) > 0.1f)
+        while (Vector3.Distance(hand.position, startPoint.position) > 0.1f)
         {
             hand.position = Vector3.MoveTowards(hand.position, startPoint.position, speed * Time.deltaTime);
+            // Плавное возвращение вращения в исходное состояние
             hand.localRotation = Quaternion.Slerp(hand.localRotation, originalRotation, speed * 0.5f * Time.deltaTime);
             yield return null;
         }
 
-        // Финальная фиксация
         hand.position = startPoint.position;
         hand.localRotation = originalRotation;
-
-        // Разблокировка! Только теперь можно стрелять снова
         isFlying = false;
         isAttached = false;
     }

@@ -7,6 +7,10 @@ TagManager:
   - Scanner
   - Interactive
   - Left_Arm
+  - Key
+  - Door
+  - KeyForMiniMarket
+  - KeyStaffOnly
   layers:
   - Default
   - TransparentFX
