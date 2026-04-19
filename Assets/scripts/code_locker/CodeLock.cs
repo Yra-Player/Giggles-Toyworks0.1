@@ -1,41 +1,45 @@
 using UnityEngine;
 using UnityEngine.Events;
+using TMPro; // 1. Добавляем пространство имен для работы с текстом
 
-public class CodeLock : MonoBehaviour 
+public class CodeLock : MonoBehaviour
 {
+    public TextMeshProUGUI displayField; // 2. Ссылка на экранчик (перетащить в инспекторе)
     public string correctCode = "1111";
     public UnityEvent onCodeCorrect;
 
     private string _currentInput = "";
     private bool _isUnlocked = false;
-    private float _lastInputTime; // Время последнего нажатия
+    private float _lastInputTime;
 
-    public void AddDigit(string digit) 
+    public void AddDigit(string digit)
     {
-        if (_isUnlocked) return; 
+        if (_isUnlocked) return;
 
-        // ЗАЩИТА: Если с момента последнего нажатия прошло меньше 0.2 сек — игнорируем
         if (Time.time - _lastInputTime < 0.2f) return;
         _lastInputTime = Time.time;
 
-        // Теперь выводим сначала кнопку, потом результат
-        Debug.Log("Нажата клавиша: " + digit);
-        
         _currentInput += digit;
-        Debug.Log("Введено: " + _currentInput);
 
-        if (_currentInput.Length >= 4) 
+        // 3. ОБНОВЛЯЕМ ЭКРАН после каждого нажатия
+        if (displayField != null)
         {
-            if (_currentInput == correctCode) 
+            displayField.text = _currentInput;
+        }
+
+        if (_currentInput.Length >= 4)
+        {
+            if (_currentInput == correctCode)
             {
                 _isUnlocked = true;
-                Debug.Log("КОД ВЕРЕН!");
+                displayField.text = "OPEN"; // Визуальный отклик
                 onCodeCorrect?.Invoke();
-            } 
-            else 
+            }
+            else
             {
-                Debug.Log("Неверный код! Сброс.");
                 _currentInput = "";
+                // Можно добавить задержку перед очисткой или вывести "ERR"
+                displayField.text = "";
             }
         }
     }
