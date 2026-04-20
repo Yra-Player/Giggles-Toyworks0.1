@@ -2691,13 +2691,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   hand: {fileID: 1597330149}
-  gunBarrel: {fileID: 1063144120}
   startPoint: {fileID: 470723407}
   playerTransform: {fileID: 1052625383}
   playerCamera: {fileID: 1623136302}
   rope: {fileID: 0}
   speed: 30
-  returnSpeed: 60
+  returnSpeed: 80
   maxDistance: 40
   collisionRadius: 0.5
 --- !u!120 &1011521806
@@ -3096,11 +3095,6 @@ MeshRenderer:
 --- !u!4 &1052625383 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 4207293392497186, guid: 11aaea5348574644a9eb4f4504fcce3f, type: 3}
-  m_PrefabInstance: {fileID: 1477082016}
-  m_PrefabAsset: {fileID: 0}
---- !u!4 &1063144120 stripped
-Transform:
-  m_CorrespondingSourceObject: {fileID: 2418344545283963835, guid: 11aaea5348574644a9eb4f4504fcce3f, type: 3}
   m_PrefabInstance: {fileID: 1477082016}
   m_PrefabAsset: {fileID: 0}
 --- !u!1 &1069267768 stripped

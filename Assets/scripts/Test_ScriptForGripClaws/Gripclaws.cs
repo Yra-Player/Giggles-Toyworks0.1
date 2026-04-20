@@ -4,18 +4,17 @@ using UnityEngine;
 public class Gripclaws : MonoBehaviour
 {
     [Header("Links")]
-    public Transform hand;          // Летающая кисть
-    public Transform gunBarrel;     // Поворотная часть пистолета
-    public Transform startPoint;    // Точка на кончике ствола
+    public Transform hand;
+    public Transform startPoint;
     public Transform playerTransform;
     public Camera playerCamera;
-    public LineRenderer rope;
+    public LineRenderer rope; // Ссылка на LineRenderer
 
     [Header("Settings")]
-    public float speed = 35f;
-    public float returnSpeed = 70f;
+    public float speed = 30f;
+    public float returnSpeed = 60f;
     public float maxDistance = 40f;
-    public float collisionRadius = 0.4f;
+    public float collisionRadius = 0.5f;
 
     private Transform originalParent;
     private Quaternion originalRotation;
@@ -29,57 +28,39 @@ public class Gripclaws : MonoBehaviour
 
         if (playerTransform == null) playerTransform = transform;
         if (playerCamera == null) playerCamera = Camera.main;
+
+        // Если забыли назначить в инспекторе, попробуем найти на этом же объекте
         if (rope == null) rope = GetComponent<LineRenderer>();
 
-        if (rope != null) rope.enabled = false;
+        if (rope != null) rope.enabled = false; // Скрываем трос в начале
 
-        // Отключаем физику руки, чтобы она не мешала полету
         if (hand.GetComponent<Rigidbody>())
             hand.GetComponent<Rigidbody>().isKinematic = true;
 
         StartCoroutine(InputListener());
     }
 
+    // Добавляем LateUpdate для плавного обновления троса за игроком
     void LateUpdate()
     {
         if (isFlying || isAttached)
         {
-            UpdateVisuals();
-            if (isAttached) ApplyRopeTension();
-        }
-        else
-        {
-            ResetGunRotation();
+            DrawRope();
         }
     }
 
-    // Поворот ствола в сторону кисти и отрисовка троса
-    void UpdateVisuals()
+    void DrawRope()
     {
-        if (gunBarrel != null)
-            gunBarrel.LookAt(hand.position);
-
-        if (rope != null)
-        {
-            rope.enabled = true;
-            rope.SetPosition(0, startPoint.position);
-            rope.SetPosition(1, hand.position);
-        }
-    }
-
-    void ResetGunRotation()
-    {
-        if (gunBarrel != null)
-            gunBarrel.localRotation = Quaternion.Slerp(gunBarrel.localRotation, Quaternion.identity, Time.deltaTime * 5f);
-
-        if (rope != null) rope.enabled = false;
+        if (rope == null) return;
+        rope.enabled = true;
+        rope.SetPosition(0, startPoint.position); // Точка у игрока
+        rope.SetPosition(1, hand.position);       // Точка у руки
     }
 
     IEnumerator InputListener()
     {
         while (true)
         {
-            // Выстрел по первому клику
             if (Input.GetMouseButtonDown(0) && !isFlying && !isAttached)
             {
                 yield return StartCoroutine(ClawRoutine());
@@ -91,15 +72,13 @@ public class Gripclaws : MonoBehaviour
     IEnumerator ClawRoutine()
     {
         isFlying = true;
-
-        // Фиксируем направление выстрела в момент клика
         Vector3 shootDirection = playerCamera.transform.forward;
-        hand.SetParent(null); // Отцепляем руку, чтобы она летела независимо
+        hand.SetParent(null);
 
-        // --- ПОЛЕТ ВПЕРЕД ---
+        // --- ВПЕРЕД ---
         while (Vector3.Distance(startPoint.position, hand.position) < maxDistance)
         {
-            Vector3 nextPos = hand.position + shootDirection * speed * Time.deltaTime;
+            Vector3 nextPosition = hand.position + shootDirection * speed * Time.deltaTime;
 
             RaycastHit hit;
             if (Physics.SphereCast(hand.position, collisionRadius, shootDirection, out hit, speed * Time.deltaTime + 0.5f))
@@ -109,22 +88,21 @@ public class Gripclaws : MonoBehaviour
                     hand.position = hit.point;
                     hand.forward = hit.normal * -1;
                     yield return StartCoroutine(HandleAttachment(hit));
-                    goto ReturnLabel; // Уходим на возврат после отцепления
+                    goto ReturnLabel;
                 }
                 else if (hit.collider.transform != playerTransform)
                 {
-                    break; // Врезались в обычную стену
+                    break;
                 }
             }
 
-            hand.position = nextPos;
+            hand.position = nextPosition;
             hand.forward = shootDirection;
             yield return null;
         }
 
     ReturnLabel:
         isFlying = true;
-        isAttached = false;
 
         // --- ВОЗВРАТ ---
         while (Vector3.Distance(hand.position, startPoint.position) > 0.3f)
@@ -134,7 +112,7 @@ public class Gripclaws : MonoBehaviour
             yield return null;
         }
 
-        ResetHandState();
+        ResetHand();
     }
 
     IEnumerator HandleAttachment(RaycastHit hit)
@@ -143,15 +121,15 @@ public class Gripclaws : MonoBehaviour
         isFlying = false;
         hand.SetParent(hit.transform);
 
-        yield return new WaitForSeconds(0.15f); // Защита от случайного клика
+        yield return new WaitForSeconds(0.15f); // Защита от двойного клика
 
         while (true)
         {
-            // Условие отцепления: повторный клик
+            // Выходим из цикла, если нажали ЛКМ или если рука сама отвалилась
             if (Input.GetMouseButtonDown(0)) break;
 
-            // Условие отцепления: слишком большая дистанция
-            if (Vector3.Distance(playerTransform.position, hand.position) > maxDistance + 5f) break;
+            float currentDist = Vector3.Distance(playerTransform.position, hand.position);
+            if (currentDist > maxDistance + 5f) break; // Запас на разрыв троса
 
             yield return null;
         }
@@ -160,18 +138,10 @@ public class Gripclaws : MonoBehaviour
         hand.SetParent(null);
     }
 
-    void ApplyRopeTension()
-    {
-        float currentDist = Vector3.Distance(playerTransform.position, hand.position);
-        if (currentDist > maxDistance)
-        {
-            Vector3 pullDir = (hand.position - playerTransform.position).normalized;
-            playerTransform.position += pullDir * (currentDist - maxDistance);
-        }
-    }
 
-    void ResetHandState()
+    void ResetHand()
     {
+        if (rope != null) rope.enabled = false; // Прячем трос
         hand.SetParent(originalParent);
         hand.position = startPoint.position;
         hand.rotation = startPoint.rotation;
