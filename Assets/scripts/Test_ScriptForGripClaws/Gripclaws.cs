@@ -8,31 +8,28 @@ public class Gripclaws : MonoBehaviour
     public Transform startPoint;
     public Transform playerTransform;
     public Camera playerCamera;
-    public LineRenderer rope; // Ссылка на LineRenderer
+    public LineRenderer rope;
 
     [Header("Settings")]
+    public int inputButton = 0; // 0 для ЛКМ, 1 для ПКМ
     public float speed = 30f;
     public float returnSpeed = 60f;
     public float maxDistance = 40f;
     public float collisionRadius = 0.5f;
 
     private Transform originalParent;
-    private Quaternion originalRotation;
     private bool isFlying = false;
     private bool isAttached = false;
 
     void Start()
     {
         originalParent = hand.parent;
-        originalRotation = hand.localRotation;
 
         if (playerTransform == null) playerTransform = transform;
         if (playerCamera == null) playerCamera = Camera.main;
-
-        // Если забыли назначить в инспекторе, попробуем найти на этом же объекте
         if (rope == null) rope = GetComponent<LineRenderer>();
 
-        if (rope != null) rope.enabled = false; // Скрываем трос в начале
+        if (rope != null) rope.enabled = false;
 
         if (hand.GetComponent<Rigidbody>())
             hand.GetComponent<Rigidbody>().isKinematic = true;
@@ -40,7 +37,6 @@ public class Gripclaws : MonoBehaviour
         StartCoroutine(InputListener());
     }
 
-    // Добавляем LateUpdate для плавного обновления троса за игроком
     void LateUpdate()
     {
         if (isFlying || isAttached)
@@ -53,15 +49,16 @@ public class Gripclaws : MonoBehaviour
     {
         if (rope == null) return;
         rope.enabled = true;
-        rope.SetPosition(0, startPoint.position); // Точка у игрока
-        rope.SetPosition(1, hand.position);       // Точка у руки
+        rope.SetPosition(0, startPoint.position);
+        rope.SetPosition(1, hand.position);
     }
 
     IEnumerator InputListener()
     {
         while (true)
         {
-            if (Input.GetMouseButtonDown(0) && !isFlying && !isAttached)
+            // Используем переменную inputButton вместо 0
+            if (Input.GetMouseButtonDown(inputButton) && !isFlying && !isAttached)
             {
                 yield return StartCoroutine(ClawRoutine());
             }
@@ -83,16 +80,20 @@ public class Gripclaws : MonoBehaviour
             RaycastHit hit;
             if (Physics.SphereCast(hand.position, collisionRadius, shootDirection, out hit, speed * Time.deltaTime + 0.5f))
             {
-                if (hit.collider.CompareTag("Scanner") || hit.collider.CompareTag("Interactive"))
+                // Проверяем, чтобы не попасть в самого себя или другую руку
+                if (hit.collider.transform != playerTransform && !hit.collider.transform.IsChildOf(playerTransform))
                 {
-                    hand.position = hit.point;
-                    hand.forward = hit.normal * -1;
-                    yield return StartCoroutine(HandleAttachment(hit));
-                    goto ReturnLabel;
-                }
-                else if (hit.collider.transform != playerTransform)
-                {
-                    break;
+                    if (hit.collider.CompareTag("Scanner") || hit.collider.CompareTag("Interactive"))
+                    {
+                        hand.position = hit.point;
+                        hand.forward = hit.normal * -1;
+                        yield return StartCoroutine(HandleAttachment(hit));
+                        goto ReturnLabel;
+                    }
+                    else
+                    {
+                        break; // Попали в обычную стену
+                    }
                 }
             }
 
@@ -121,15 +122,15 @@ public class Gripclaws : MonoBehaviour
         isFlying = false;
         hand.SetParent(hit.transform);
 
-        yield return new WaitForSeconds(0.15f); // Защита от двойного клика
+        yield return new WaitForSeconds(0.15f);
 
         while (true)
         {
-            // Выходим из цикла, если нажали ЛКМ или если рука сама отвалилась
-            if (Input.GetMouseButtonDown(0)) break;
+            // Отпускаем при повторном нажатии ТУ ЖЕ кнопку
+            if (Input.GetMouseButtonDown(inputButton)) break;
 
-            float currentDist = Vector3.Distance(playerTransform.position, hand.position);
-            if (currentDist > maxDistance + 5f) break; // Запас на разрыв троса
+            float currentDist = Vector3.Distance(startPoint.position, hand.position);
+            if (currentDist > maxDistance + 5f) break;
 
             yield return null;
         }
@@ -138,10 +139,9 @@ public class Gripclaws : MonoBehaviour
         hand.SetParent(null);
     }
 
-
     void ResetHand()
     {
-        if (rope != null) rope.enabled = false; // Прячем трос
+        if (rope != null) rope.enabled = false;
         hand.SetParent(originalParent);
         hand.position = startPoint.position;
         hand.rotation = startPoint.rotation;

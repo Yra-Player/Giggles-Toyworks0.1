@@ -6,16 +6,23 @@ using UnityEngine.UI;
 public class PlayerInteraction : MonoBehaviour
 {
     [Header("Настройки луча")]
-    public float interactDist = 4f; // Дистанция, на которой игрок видит предметы
+    public float interactDist = 4f; // Дистанция взаимодействия
 
     [Header("Настройки прицела")]
-    public Image cursorDot; // Твой UI Image (точка в центре экрана)
-    public Color normalColor = Color.white; // Цвет прицела в покое
-    public Color interactColor = Color.red;  // Цвет прицела при наведении на предмет
+    public Image cursorDot; // Иконка точки в центре экрана
+    public Color normalColor = Color.white;
+    public Color interactColor = Color.red;
+
+    [Header("Настройки GripClaws (Правая рука)")]
+    public GameObject rightArmShoulder; // Сюда тянем плечо/предплечье (arm_right)
+    public GameObject rightHandModel;   // Сюда тянем саму кисть (right_hand), если она не включилась
 
     void Start()
     {
-        // Запускаем бесконечный цикл проверки взаимодействия
+        // Выключаем правую руку при старте игры
+        if (rightArmShoulder != null) rightArmShoulder.SetActive(false);
+        if (rightHandModel != null) rightHandModel.SetActive(false);
+
         StartCoroutine(InteractionRoutine());
     }
 
@@ -23,66 +30,76 @@ public class PlayerInteraction : MonoBehaviour
     {
         while (true)
         {
-            // Создаем луч из центра камеры вперед
             Ray ray = new Ray(transform.position, transform.forward);
             RaycastHit hit;
 
-            // Пускаем луч
             bool hitSomething = Physics.Raycast(ray, out hit, interactDist);
 
-            // Временные переменные для найденных объектов
+            // Сбрасываем переменные перед каждой проверкой
             LockButton button = null;
             DoorControl door = null;
             bool isPickableKey = false;
+            bool isRightHandItem = false;
 
             if (hitSomething)
             {
-                // 1. Проверяем, есть ли на объекте скрипты кнопки или двери
+                // Проверяем компоненты
                 button = hit.collider.GetComponent<LockButton>();
                 door = hit.collider.GetComponent<DoorControl>();
 
-                // 2. Проверяем, является ли объект одним из двух типов ключей по Тэгу
+                // Проверка ключей по тегам
                 if (hit.collider.CompareTag("KeyStaffOnly") || hit.collider.CompareTag("KeyForMiniMarket"))
                 {
                     isPickableKey = true;
                 }
+
+                // ПРОВЕРКА: Навелись ли мы на предмет "Рука"
+                if (hit.collider.CompareTag("Item_Right_hand"))
+                {
+                    isRightHandItem = true;
+                }
             }
 
-            // ЛОГИКА ВИЗУАЛА (Прицел)
-            // Если перед нами кнопка, дверь или ключ — подсвечиваем прицел
-            if (button != null || door != null || isPickableKey)
+            // ЛОГИКА ЦВЕТА ПРИЦЕЛА
+            if (button != null || door != null || isPickableKey || isRightHandItem)
             {
                 if (cursorDot != null) cursorDot.color = interactColor;
 
-                // ЛОГИКА ВВОДА (Нажатие E)
+                // ЛОГИКА НАЖАТИЯ КНОПКИ "E"
                 if (Input.GetKeyDown(KeyCode.E))
                 {
                     Inventory inventory = GetComponent<Inventory>();
 
-                    if (isPickableKey)
+                    if (isRightHandItem)
                     {
-                        // Если это ключ — добавляем в инвентарь (скрипт инвентаря сам его удалит)
+                        // 1. Активируем части руки у игрока
+                        if (rightArmShoulder != null) rightArmShoulder.SetActive(true);
+                        if (rightHandModel != null) rightHandModel.SetActive(true);
+
+                        // 2. Удаляем предмет с пола
+                        Destroy(hit.collider.gameObject);
+
+                        Debug.Log("Правая рука подобрана и активирована!");
+                    }
+                    else if (isPickableKey)
+                    {
                         if (inventory != null) inventory.AddKey(hit.collider.gameObject);
                     }
                     else if (door != null)
                     {
-                        // Если это дверь — пытаемся открыть (передаем инвентарь для проверки ключа)
                         if (inventory != null) door.TryOpen(inventory);
                     }
                     else if (button != null)
                     {
-                        // Если кнопка — просто жмем
                         button.PressButton();
                     }
                 }
             }
             else
             {
-                // Если смотрим в пустоту или на обычный объект — прицел обычный
                 if (cursorDot != null) cursorDot.color = normalColor;
             }
 
-            // Ждем один кадр перед следующим циклом
             yield return null;
         }
     }

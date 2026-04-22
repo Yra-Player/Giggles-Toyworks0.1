@@ -12,6 +12,8 @@ TagManager:
   - KeyForMiniMarket
   - KeyStaffOnly
   - Right_Arm
+  - ' Item_Right_hand'
+  - Item_Right_hand
   layers:
   - Default
   - TransparentFX
