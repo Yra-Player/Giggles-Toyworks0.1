@@ -1,4 +1,4 @@
-using System.Collections;
+п»їusing System.Collections;
 using UnityEngine;
 
 public class GripclawsManager : MonoBehaviour
@@ -10,41 +10,40 @@ public class GripclawsManager : MonoBehaviour
         public Transform handTransform;
         public Transform startPoint;
         public LineRenderer rope;
-        public int inputButton;
-        [HideInInspector] public bool isFlying, isAttached, isReturning;
-        [HideInInspector] public bool wasActiveLastFrame;
+        public int inputButton = 0;
+
+        [HideInInspector] public Transform originalParent;
+        [HideInInspector] public bool isFlying = false;
+        [HideInInspector] public bool isAttached = false;
     }
 
-    [Header("Setup")]
+    [Header("Hands Setup")]
     public HandData[] hands;
+
+    [Header("Global Settings")]
+    public Transform playerTransform;
     public Camera playerCamera;
     public float speed = 30f;
     public float returnSpeed = 60f;
     public float maxDistance = 40f;
+    public float collisionRadius = 0.5f;
 
-    [Header("Layers")]
-    public LayerMask obstacleMask;
-    public LayerMask grabMask;
-
-    void Update()
+    void Start()
     {
+        if (playerCamera == null) playerCamera = Camera.main;
+        if (playerTransform == null) playerTransform = transform;
+
         foreach (var hand in hands)
         {
-            if (hand.handTransform == null) continue;
-
-            // Проверка на активацию (подбор руки)
-            if (hand.handTransform.gameObject.activeInHierarchy && !hand.wasActiveLastFrame)
+            if (hand.handTransform != null)
             {
-                ResetHand(hand);
-            }
-            hand.wasActiveLastFrame = hand.handTransform.gameObject.activeInHierarchy;
+                hand.originalParent = hand.handTransform.parent;
+                if (hand.rope != null) hand.rope.enabled = false;
 
-            // Если рука выключена - игнорируем ввод
-            if (!hand.handTransform.gameObject.activeInHierarchy) continue;
+                Rigidbody rb = hand.handTransform.GetComponent<Rigidbody>();
+                if (rb != null) rb.isKinematic = true;
 
-            if (Input.GetMouseButtonDown(hand.inputButton) && !hand.isFlying && !hand.isAttached && !hand.isReturning)
-            {
-                StartCoroutine(ClawRoutine(hand));
+                StartCoroutine(InputListener(hand));
             }
         }
     }
@@ -53,112 +52,113 @@ public class GripclawsManager : MonoBehaviour
     {
         foreach (var hand in hands)
         {
-            if (hand.handTransform == null || !hand.handTransform.gameObject.activeInHierarchy)
+            if (hand.handTransform != null && (hand.isFlying || hand.isAttached))
             {
-                if (hand.rope != null) hand.rope.enabled = false;
-                continue;
+                DrawRope(hand);
             }
+        }
+    }
 
-            if (hand.isFlying || hand.isAttached || hand.isReturning)
+    void DrawRope(HandData hand)
+    {
+        if (hand.rope == null) return;
+        hand.rope.enabled = true;
+        hand.rope.SetPosition(0, hand.startPoint.position);
+        hand.rope.SetPosition(1, hand.handTransform.position);
+    }
+
+    IEnumerator InputListener(HandData hand)
+    {
+        while (true)
+        {
+            if (hand.handTransform.gameObject.activeInHierarchy &&
+                Input.GetMouseButtonDown(hand.inputButton) &&
+                !hand.isFlying && !hand.isAttached)
             {
-                DrawSimpleRope(hand);
+                StartCoroutine(ClawRoutine(hand));
             }
+            yield return null;
         }
     }
 
     IEnumerator ClawRoutine(HandData hand)
     {
         hand.isFlying = true;
-        Vector3 dir = playerCamera.transform.forward;
+        Vector3 shootDirection = playerCamera.transform.forward;
         hand.handTransform.SetParent(null);
-        hand.handTransform.localScale = Vector3.one;
 
-        // --- ПОЛЕТ ВПЕРЕД ---
-        while (Vector3.Distance(hand.startPoint.position, hand.handTransform.position) < maxDistance && !hand.isAttached)
+        // --- пїЅпїЅпїЅпїЅпїЅпїЅ ---
+        while (Vector3.Distance(hand.startPoint.position, hand.handTransform.position) < maxDistance)
         {
-            if (!hand.handTransform.gameObject.activeInHierarchy) { ResetHand(hand); yield break; }
+            if (!hand.handTransform.gameObject.activeInHierarchy) break;
 
-            hand.handTransform.position += dir * speed * Time.deltaTime;
-            hand.handTransform.forward = dir;
+            Vector3 nextPosition = hand.handTransform.position + shootDirection * speed * Time.deltaTime;
+            RaycastHit hit;
 
-            if (Physics.SphereCast(hand.handTransform.position, 0.2f, dir, out RaycastHit hit, 0.5f, obstacleMask | grabMask))
+            if (Physics.SphereCast(hand.handTransform.position, collisionRadius, shootDirection, out hit, speed * Time.deltaTime + 0.5f))
             {
-                if (((1 << hit.collider.gameObject.layer) & grabMask) != 0)
+                if (hit.collider.transform != playerTransform && !hit.collider.transform.IsChildOf(playerTransform))
                 {
                     if (hit.collider.CompareTag("Scanner") || hit.collider.CompareTag("In") || hit.collider.CompareTag("Out"))
                     {
-                        AttachHand(hand, hit);
-                        break;
+                        hand.handTransform.position = hit.point;
+                        hand.handTransform.forward = hit.normal * -1;
+                        yield return StartCoroutine(HandleAttachment(hand, hit));
+                        goto ReturnLabel;
                     }
+                    else break;
                 }
-                break;
             }
+            hand.handTransform.position = nextPosition;
+            hand.handTransform.forward = shootDirection;
             yield return null;
         }
 
-        // --- ОЖИДАНИЕ ---
-        while (hand.isAttached)
-        {
-            if (!hand.handTransform.gameObject.activeInHierarchy) { ResetHand(hand); yield break; }
-            if (Input.GetMouseButtonDown(hand.inputButton)) break;
-            yield return null;
-        }
-
-        // --- ВОЗВРАТ ---
-        hand.isAttached = false;
-        hand.isReturning = true;
-        hand.handTransform.SetParent(null);
-
+    ReturnLabel:
+        hand.isFlying = true;
+        // --- пїЅпїЅпїЅпїЅпїЅпїЅпїЅ ---
         while (Vector3.Distance(hand.handTransform.position, hand.startPoint.position) > 0.3f)
         {
-            if (!hand.handTransform.gameObject.activeInHierarchy) { ResetHand(hand); yield break; }
-
             hand.handTransform.position = Vector3.MoveTowards(hand.handTransform.position, hand.startPoint.position, returnSpeed * Time.deltaTime);
-            hand.handTransform.rotation = Quaternion.Slerp(hand.handTransform.rotation, hand.startPoint.rotation, 10f * Time.deltaTime);
+            hand.handTransform.rotation = Quaternion.Slerp(hand.handTransform.rotation, hand.startPoint.rotation, returnSpeed * 0.2f * Time.deltaTime);
             yield return null;
         }
-
         ResetHand(hand);
     }
 
-    void AttachHand(HandData hand, RaycastHit hit)
+    IEnumerator HandleAttachment(HandData hand, RaycastHit hit)
     {
         hand.isAttached = true;
         hand.isFlying = false;
-        hand.handTransform.position = hit.point;
-        hand.handTransform.forward = hit.normal * -1;
         hand.handTransform.SetParent(hit.transform);
 
-        Vector3 ps = hit.transform.lossyScale;
-        hand.handTransform.localScale = new Vector3(1f / ps.x, 1f / ps.y, 1f / ps.z);
-    }
+        yield return new WaitForSeconds(0.15f);
 
-    void DrawSimpleRope(HandData hand)
-    {
-        if (hand.rope == null) return;
-        hand.rope.enabled = true;
-        hand.rope.positionCount = 2;
-        hand.rope.SetPosition(0, hand.startPoint.position);
-        hand.rope.SetPosition(1, hand.handTransform.position);
+        while (true)
+        {
+            // пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ:
+            // 1. пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+            if (!hand.handTransform.gameObject.activeInHierarchy) break;
+
+            // 2. пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
+            if (Input.GetMouseButtonDown(hand.inputButton)) break;
+
+            // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ - пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+
+            yield return null;
+        }
+
+        hand.isAttached = false;
+        hand.handTransform.SetParent(null);
     }
 
     void ResetHand(HandData hand)
     {
-        hand.isFlying = hand.isAttached = hand.isReturning = false;
-
-        // Прямой возврат в иерархию, как в твоем первом коде
-        if (hand.handTransform != null && hand.startPoint != null)
-        {
-            hand.handTransform.SetParent(hand.startPoint.parent);
-            hand.handTransform.position = hand.startPoint.position;
-            hand.handTransform.rotation = hand.startPoint.rotation;
-            hand.handTransform.localScale = Vector3.one;
-        }
-
-        // Тот самый фикс ошибки NullReference
-        if (hand.rope != null)
-        {
-            hand.rope.enabled = false;
-        }
+        if (hand.rope != null) hand.rope.enabled = false;
+        hand.handTransform.SetParent(hand.originalParent);
+        hand.handTransform.position = hand.startPoint.position;
+        hand.handTransform.rotation = hand.startPoint.rotation;
+        hand.isFlying = false;
+        hand.isAttached = false;
     }
 }
