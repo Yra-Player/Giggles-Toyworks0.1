@@ -12,6 +12,7 @@ public class GripclawsManager : MonoBehaviour
         public LineRenderer rope;
         public int inputButton;
         [HideInInspector] public bool isFlying, isAttached, isReturning;
+        [HideInInspector] public bool wasActiveLastFrame;
     }
 
     [Header("Setup")]
@@ -22,13 +23,25 @@ public class GripclawsManager : MonoBehaviour
     public float maxDistance = 40f;
 
     [Header("Layers")]
-    public LayerMask obstacleMask; // Стены (чтобы рука не летела сквозь них)
-    public LayerMask grabMask;     // Сканеры
+    public LayerMask obstacleMask;
+    public LayerMask grabMask;
 
     void Update()
     {
         foreach (var hand in hands)
         {
+            if (hand.handTransform == null) continue;
+
+            // Проверка на активацию (подбор руки)
+            if (hand.handTransform.gameObject.activeInHierarchy && !hand.wasActiveLastFrame)
+            {
+                ResetHand(hand);
+            }
+            hand.wasActiveLastFrame = hand.handTransform.gameObject.activeInHierarchy;
+
+            // Если рука выключена - игнорируем ввод
+            if (!hand.handTransform.gameObject.activeInHierarchy) continue;
+
             if (Input.GetMouseButtonDown(hand.inputButton) && !hand.isFlying && !hand.isAttached && !hand.isReturning)
             {
                 StartCoroutine(ClawRoutine(hand));
@@ -40,6 +53,12 @@ public class GripclawsManager : MonoBehaviour
     {
         foreach (var hand in hands)
         {
+            if (hand.handTransform == null || !hand.handTransform.gameObject.activeInHierarchy)
+            {
+                if (hand.rope != null) hand.rope.enabled = false;
+                continue;
+            }
+
             if (hand.isFlying || hand.isAttached || hand.isReturning)
             {
                 DrawSimpleRope(hand);
@@ -57,6 +76,8 @@ public class GripclawsManager : MonoBehaviour
         // --- ПОЛЕТ ВПЕРЕД ---
         while (Vector3.Distance(hand.startPoint.position, hand.handTransform.position) < maxDistance && !hand.isAttached)
         {
+            if (!hand.handTransform.gameObject.activeInHierarchy) { ResetHand(hand); yield break; }
+
             hand.handTransform.position += dir * speed * Time.deltaTime;
             hand.handTransform.forward = dir;
 
@@ -70,28 +91,30 @@ public class GripclawsManager : MonoBehaviour
                         break;
                     }
                 }
-                break; // Просто врезались в стену
+                break;
             }
             yield return null;
         }
 
-        // --- ОЖИДАНИЕ (Если зацепились) ---
+        // --- ОЖИДАНИЕ ---
         while (hand.isAttached)
         {
+            if (!hand.handTransform.gameObject.activeInHierarchy) { ResetHand(hand); yield break; }
             if (Input.GetMouseButtonDown(hand.inputButton)) break;
             yield return null;
         }
 
-        // --- ВОЗВРАТ (Прямой) ---
+        // --- ВОЗВРАТ ---
         hand.isAttached = false;
         hand.isReturning = true;
         hand.handTransform.SetParent(null);
 
         while (Vector3.Distance(hand.handTransform.position, hand.startPoint.position) > 0.3f)
         {
+            if (!hand.handTransform.gameObject.activeInHierarchy) { ResetHand(hand); yield break; }
+
             hand.handTransform.position = Vector3.MoveTowards(hand.handTransform.position, hand.startPoint.position, returnSpeed * Time.deltaTime);
             hand.handTransform.rotation = Quaternion.Slerp(hand.handTransform.rotation, hand.startPoint.rotation, 10f * Time.deltaTime);
-            hand.handTransform.localScale = Vector3.one;
             yield return null;
         }
 
@@ -106,7 +129,6 @@ public class GripclawsManager : MonoBehaviour
         hand.handTransform.forward = hit.normal * -1;
         hand.handTransform.SetParent(hit.transform);
 
-        // Нейтрализация масштаба родителя
         Vector3 ps = hit.transform.lossyScale;
         hand.handTransform.localScale = new Vector3(1f / ps.x, 1f / ps.y, 1f / ps.z);
     }
@@ -123,10 +145,20 @@ public class GripclawsManager : MonoBehaviour
     void ResetHand(HandData hand)
     {
         hand.isFlying = hand.isAttached = hand.isReturning = false;
-        hand.handTransform.SetParent(hand.startPoint.parent);
-        hand.handTransform.position = hand.startPoint.position;
-        hand.handTransform.rotation = hand.startPoint.rotation;
-        hand.handTransform.localScale = Vector3.one;
-        hand.rope.enabled = false;
+
+        // Прямой возврат в иерархию, как в твоем первом коде
+        if (hand.handTransform != null && hand.startPoint != null)
+        {
+            hand.handTransform.SetParent(hand.startPoint.parent);
+            hand.handTransform.position = hand.startPoint.position;
+            hand.handTransform.rotation = hand.startPoint.rotation;
+            hand.handTransform.localScale = Vector3.one;
+        }
+
+        // Тот самый фикс ошибки NullReference
+        if (hand.rope != null)
+        {
+            hand.rope.enabled = false;
+        }
     }
 }
