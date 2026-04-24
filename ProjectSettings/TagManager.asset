@@ -14,6 +14,8 @@ TagManager:
   - Right_Arm
   - ' Item_Right_hand'
   - Item_Right_hand
+  - In
+  - Out
   layers:
   - Default
   - TransparentFX
