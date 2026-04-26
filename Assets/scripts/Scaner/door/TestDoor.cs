@@ -4,7 +4,7 @@ using System.Collections;
 public class TestDoor : MonoBehaviour
 {
     public Scanner targetScanner;
-    public float OpenHeight = 3f;
+    private float OpenHeight = 15f;
     public float Speed = 2f;
 
     private void OnEnable()
@@ -28,14 +28,14 @@ public class TestDoor : MonoBehaviour
     {
         Vector3 targetPosition = transform.position + Vector3.up * OpenHeight;
 
-        // Цикл работает только пока дверь движется
+        
         while (Vector3.Distance(transform.position, targetPosition) > 0.01f)
         {
             transform.position = Vector3.MoveTowards(transform.position, targetPosition, Speed * Time.deltaTime);
-            yield return null; // Ждем следующего кадра
+            yield return null; 
         }
 
-        transform.position = targetPosition; // Фиксируем финальную точку
+        transform.position = targetPosition; 
         Debug.Log("Дверь открыта, корутина завершена.");
     }
 }
