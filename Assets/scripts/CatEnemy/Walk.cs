@@ -40,12 +40,12 @@ public class Walk : MonoBehaviour
                 // ? означает Тогда, а : означет Иначе
                 float currentMonsterSpeed = (playerScript.speed > 7f) ? speedRunEnemy : speedEnemy;
 
-
-                Vector3 direction = (player.transform.position - transform.position).normalized;
+            //.normalized превращает длину вектора в 1 чистое направление. Без этого враг летел
+            Vector3 direction = (player.transform.position - transform.position).normalized;
                 enemy.transform.position += direction * currentMonsterSpeed * Time.deltaTime;
 
 
-                enemy.transform.LookAt(new Vector3(player.transform.position.x, transform.position.y, player.transform.position.z));
+                //enemy.transform.LookAt(new Vector3(player.transform.position.x, transform.position.y, player.transform.position.z));
                 yield return null;
             }
         }
