@@ -1323,7 +1323,7 @@ MonoBehaviour:
   PositionKota: {fileID: 1933644440}
   newPosition: {fileID: 335423608}
   BlackVoid: {fileID: 2111512464}
-  TriggerWalk: {fileID: 2112450822}
+  TriggerWalk: {fileID: 0}
 --- !u!65 &482265219
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -4970,11 +4970,6 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1701134006}
   m_CullTransparentMesh: 1
---- !u!1 &1716734668 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 1773623360729482, guid: 11aaea5348574644a9eb4f4504fcce3f, type: 3}
-  m_PrefabInstance: {fileID: 1477082016}
-  m_PrefabAsset: {fileID: 0}
 --- !u!1001 &1718481582
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -5570,6 +5565,22 @@ Rigidbody:
   m_Interpolate: 0
   m_Constraints: 0
   m_CollisionDetection: 0
+--- !u!114 &1933644442
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1933644439}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aa75090f24bc83d46b5bdca36350f086, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  Player: {fileID: 1902864253}
+  speedEnemy: 6.5
+  speedRunEnemy: 14.5
+  DistanceSeePlayer: 20
 --- !u!1 &1975607399
 GameObject:
   m_ObjectHideFlags: 0
@@ -6349,69 +6360,6 @@ GameObject:
   m_CorrespondingSourceObject: {fileID: 8951221254827981853, guid: 29a85608544663f41974c6337486f874, type: 3}
   m_PrefabInstance: {fileID: 5848743961557879786}
   m_PrefabAsset: {fileID: 0}
---- !u!1 &2112450822
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 2112450824}
-  - component: {fileID: 2112450823}
-  - component: {fileID: 2112450825}
-  m_Layer: 0
-  m_Name: TriggerStartWalkEnemy
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 0
---- !u!65 &2112450823
-BoxCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2112450822}
-  m_Material: {fileID: 0}
-  m_IsTrigger: 1
-  m_Enabled: 1
-  serializedVersion: 2
-  m_Size: {x: 41.850136, y: 42.85, z: 106.6}
-  m_Center: {x: 11.774906, y: 0, z: 0}
---- !u!4 &2112450824
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2112450822}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 168.8, y: 124.77325, z: -70.9}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_RootOrder: 47
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &2112450825
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2112450822}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: aa75090f24bc83d46b5bdca36350f086, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  player: {fileID: 1716734668}
-  TriggerOpen: {fileID: 111306045}
-  enemy: {fileID: 1933644439}
-  speedEnemy: 6.5
-  speedRunEnemy: 14.5
 --- !u!1 &2125814493
 GameObject:
   m_ObjectHideFlags: 0

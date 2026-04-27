@@ -4,35 +4,35 @@ using UnityEngine;
 
 public class Walk : MonoBehaviour
 {
-    public GameObject player;
-    public GameObject TriggerOpen;
-    public GameObject enemy;
+    public Transform Player;
+    
+    
     public float speedEnemy = 6.5f;
     public float speedRunEnemy = 14.5f;
+    public float DistanceSeePlayer;
+
     private bool isFollowing = false;
+
     private FirstPersonMovement playerScript;
     
 
     void Start()
     {
-        if (player != null)
-            playerScript = player.GetComponent<FirstPersonMovement>();
+        if (Player != null)
+            playerScript = Player.GetComponent<FirstPersonMovement>();
     }
 
-    private void OnTriggerEnter(Collider other)
+    void Update()
     {
-        if (other.CompareTag("Player") && !isFollowing)
+        float distance = Vector3.Distance(transform.position, Player.position);
+
+        if (distance < DistanceSeePlayer && !isFollowing)
         {
-            if (enemy != null)
-            {
-                isFollowing = true;
-                StartCoroutine(FollowRoutine());
-            }
-            else
-            {
-                Debug.LogWarning("«абыл назначить врага");
-            }
+            isFollowing = true;
+            StartCoroutine(FollowRoutine());
         }
+        
+
     }
 
         IEnumerator FollowRoutine()
@@ -43,11 +43,15 @@ public class Walk : MonoBehaviour
                 float currentMonsterSpeed = (playerScript.speed > 7f) ? speedRunEnemy : speedEnemy;
 
             //.normalized превращает длину вектора в 1 чистое направление. Ѕез этого враг летел
-            Vector3 direction = (player.transform.position - transform.position).normalized;
-                enemy.transform.position += direction * currentMonsterSpeed * Time.deltaTime;
+            Vector3 direction = (Player.position - transform.position).normalized;
+
+            direction.y = 0;
+            transform.LookAt(transform.position + direction);
+
+            transform.position += direction * currentMonsterSpeed * Time.deltaTime;
 
 
-                //enemy.transform.LookAt(new Vector3(player.transform.position.x, transform.position.y, player.transform.position.z));
+                
                 yield return null;
             }
         }
