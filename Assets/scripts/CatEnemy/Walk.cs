@@ -11,7 +11,7 @@ public class Walk : MonoBehaviour
     public float speedRunEnemy = 14.5f;
     public float DistanceSeePlayer;
 
-    private bool isFollowing = false;
+    //private bool isFollowing = false;
     private Rigidbody Rb;
 
     private FirstPersonMovement playerScript;
@@ -26,38 +26,19 @@ public class Walk : MonoBehaviour
         }
     }
 
-    void Update()
+   void FixedUpdate()
     {
+        if (Player == null) return;
         float distance = Vector3.Distance(transform.position, Player.position);
-
-        if (distance < DistanceSeePlayer && !isFollowing)
+        if (distance < DistanceSeePlayer)
         {
-            isFollowing = true;
-            StartCoroutine(FollowRoutine());
-            Debug.Log("Началось преследование!");
+
+            Vector3 derectional = Player.position - transform.position;
+            derectional.y = 0;
+            derectional.Normalize();
+            transform.LookAt(transform.position + derectional);
+            Rb.MovePosition(Rb.position + derectional * speedEnemy * Time.fixedDeltaTime);
         }
-        
 
     }
-
-        IEnumerator FollowRoutine()
-        {
-            while (isFollowing)
-            {
-                // ? означает Тогда, а : означет Иначе
-                float currentMonsterSpeed = (playerScript.speed > 7f) ? speedRunEnemy : speedEnemy;
-
-            //.normalized превращает длину вектора в 1 чистое направление. Без этого враг летел
-            Vector3 direction = (Player.position - transform.position).normalized;
-
-            direction.y = 0;
-
-            transform.LookAt(transform.position + direction);
-
-            Rb.MovePosition(Rb.position + direction * speedEnemy * Time.deltaTime);
-
-                
-                yield return null;
-            }
-        }
 }
