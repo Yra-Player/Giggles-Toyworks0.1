@@ -5,11 +5,13 @@ using UnityEngine;
 public class Walk : MonoBehaviour
 {
     public GameObject player;
+    public GameObject TriggerOpen;
     public GameObject enemy;
     public float speedEnemy = 6.5f;
     public float speedRunEnemy = 14.5f;
     private bool isFollowing = false;
     private FirstPersonMovement playerScript;
+    
 
     void Start()
     {

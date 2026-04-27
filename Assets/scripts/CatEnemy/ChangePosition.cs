@@ -6,6 +6,9 @@ public class ChangePosition : MonoBehaviour
 {
     public Transform PositionKota;
     public Transform newPosition; 
+    public GameObject BlackVoid;
+    public GameObject TriggerWalk;
+    
 
     void OnTriggerEnter(Collider other)
     {
@@ -13,8 +16,12 @@ public class ChangePosition : MonoBehaviour
         {
             PositionKota.position = newPosition.position;
             PositionKota.LookAt(other.transform);
+            BlackVoid.SetActive(true);
+            TriggerWalk.SetActive(true);
+            
             Debug.Log("Слышен странный звук");
         }
+
     }
     
 }
