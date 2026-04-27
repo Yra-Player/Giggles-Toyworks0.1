@@ -12,14 +12,18 @@ public class Walk : MonoBehaviour
     public float DistanceSeePlayer;
 
     private bool isFollowing = false;
+    private Rigidbody Rb;
 
     private FirstPersonMovement playerScript;
     
 
     void Start()
     {
+        Rb = GetComponent<Rigidbody>();
         if (Player != null)
+        {
             playerScript = Player.GetComponent<FirstPersonMovement>();
+        }
     }
 
     void Update()
@@ -30,6 +34,7 @@ public class Walk : MonoBehaviour
         {
             isFollowing = true;
             StartCoroutine(FollowRoutine());
+            Debug.Log("Началось преследование!");
         }
         
 
@@ -46,10 +51,10 @@ public class Walk : MonoBehaviour
             Vector3 direction = (Player.position - transform.position).normalized;
 
             direction.y = 0;
+
             transform.LookAt(transform.position + direction);
 
-            transform.position += direction * currentMonsterSpeed * Time.deltaTime;
-
+            Rb.MovePosition(Rb.position + direction * speedEnemy * Time.deltaTime);
 
                 
                 yield return null;

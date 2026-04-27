@@ -4,24 +4,28 @@ using UnityEngine;
 
 public class ChangePosition : MonoBehaviour
 {
-    public Transform PositionKota;
-    public Transform newPosition; 
+    public GameObject Enemy; 
     public GameObject BlackVoid;
-    public GameObject TriggerWalk;
-    
+    public GameObject Activate;
+    private bool WasActive = false;
+
+
 
     void OnTriggerEnter(Collider other)
     {
-        if (other.CompareTag("Player")) 
+        if (other.CompareTag("Player") && !WasActive) 
         {
-            PositionKota.position = newPosition.position;
-            PositionKota.LookAt(other.transform);
             BlackVoid.SetActive(true);
-            TriggerWalk.SetActive(true);
-            
+            Enemy.SetActive(true);
+            Activate.SetActive(true);
             Debug.Log("Слышен странный звук");
+            WasActive = true;
+            Debug.Log("Скрипт больше не сработает");
         }
-
+        if (Enemy == null)
+        {
+            Debug.Log("Где то чудище которое должно следовать за тобой?");
+        }
     }
     
 }
