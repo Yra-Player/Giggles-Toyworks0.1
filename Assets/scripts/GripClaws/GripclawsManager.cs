@@ -15,6 +15,8 @@ public class GripclawsManager : MonoBehaviour
         [HideInInspector] public Transform originalParent;
         [HideInInspector] public bool isFlying = false;
         [HideInInspector] public bool isAttached = false;
+        [HideInInspector] public Rigidbody attachedRB;
+        [HideInInspector] public IGripInteractable activeInteractable; // Ссылка на интерфейс для каждой руки
     }
 
     [Header("Hands Setup")]
@@ -27,6 +29,12 @@ public class GripclawsManager : MonoBehaviour
     public float returnSpeed = 60f;
     public float maxDistance = 40f;
     public float collisionRadius = 0.5f;
+
+    [Header("Physics Setting")]
+    public float pullStrength = 150f;
+    public string draggableTag = "Box";
+    public float shootCooldown = 0.5f;
+    private float lastDetachTime;
 
     void Start()
     {
@@ -73,7 +81,8 @@ public class GripclawsManager : MonoBehaviour
         {
             if (hand.handTransform.gameObject.activeInHierarchy &&
                 Input.GetMouseButtonDown(hand.inputButton) &&
-                !hand.isFlying && !hand.isAttached)
+                !hand.isFlying && !hand.isAttached &&
+                Time.time > lastDetachTime + shootCooldown)
             {
                 StartCoroutine(ClawRoutine(hand));
             }
@@ -87,7 +96,6 @@ public class GripclawsManager : MonoBehaviour
         Vector3 shootDirection = playerCamera.transform.forward;
         hand.handTransform.SetParent(null);
 
-        // --- ������ ---
         while (Vector3.Distance(hand.startPoint.position, hand.handTransform.position) < maxDistance)
         {
             if (!hand.handTransform.gameObject.activeInHierarchy) break;
@@ -99,7 +107,7 @@ public class GripclawsManager : MonoBehaviour
             {
                 if (hit.collider.transform != playerTransform && !hit.collider.transform.IsChildOf(playerTransform))
                 {
-                    if (hit.collider.CompareTag("Scanner") || hit.collider.CompareTag("In") || hit.collider.CompareTag("Out"))
+                    if (hit.collider.CompareTag("Scanner") || hit.collider.CompareTag(draggableTag))
                     {
                         hand.handTransform.position = hit.point;
                         hand.handTransform.forward = hit.normal * -1;
@@ -116,7 +124,9 @@ public class GripclawsManager : MonoBehaviour
 
     ReturnLabel:
         hand.isFlying = true;
-        // --- ������� ---
+        hand.isAttached = false;
+        hand.handTransform.SetParent(null);
+
         while (Vector3.Distance(hand.handTransform.position, hand.startPoint.position) > 0.3f)
         {
             hand.handTransform.position = Vector3.MoveTowards(hand.handTransform.position, hand.startPoint.position, returnSpeed * Time.deltaTime);
@@ -131,23 +141,50 @@ public class GripclawsManager : MonoBehaviour
         hand.isAttached = true;
         hand.isFlying = false;
         hand.handTransform.SetParent(hit.transform);
+        hand.attachedRB = hit.collider.GetComponent<Rigidbody>();
 
-        yield return new WaitForSeconds(0.15f);
-
-        while (true)
+        // --- Взаимодействие с интерфейсом ---
+        if (hit.collider.TryGetComponent(out IGripInteractable interactable))
         {
-            // ���� ��������� ������ ����:
-            // 1. ���� ��������� � ����������
-            if (!hand.handTransform.gameObject.activeInHierarchy) break;
+            hand.activeInteractable = interactable;
+            hand.activeInteractable.OnGripStart();
+        }
 
-            // 2. ����� ����� ����� �� �� �� ������ ����
-            if (Input.GetMouseButtonDown(hand.inputButton)) break;
+        float pressTimer = 0;
+        while (Input.GetMouseButton(hand.inputButton)) yield return null;
 
-            // �������� ��������� ������� - ������ ����� �������� ��� ������ ������
+        while (hand.isAttached)
+        {
+            if (!hand.handTransform.gameObject.activeInHierarchy || hit.collider == null) break;
 
+            float currentDist = Vector3.Distance(hand.startPoint.position, hand.handTransform.position);
+            if (currentDist > maxDistance + 5f || currentDist < 3.2f) break;
+
+            if (Input.GetMouseButton(hand.inputButton))
+            {
+                pressTimer += Time.deltaTime;
+                if (pressTimer > 0.15f && hand.attachedRB != null)
+                {
+                    Vector3 dir = hand.startPoint.position - hand.handTransform.position;
+                    hand.attachedRB.AddForce(dir.normalized * pullStrength, ForceMode.Acceleration);
+                }
+            }
+            else
+            {
+                if (pressTimer > 0.01f && pressTimer <= 0.15f) break;
+                pressTimer = 0;
+            }
             yield return null;
         }
 
+        // --- Завершение взаимодействия ---
+        if (hand.activeInteractable != null)
+        {
+            hand.activeInteractable.OnGripStop();
+            hand.activeInteractable = null;
+        }
+
+        lastDetachTime = Time.time;
         hand.isAttached = false;
         hand.handTransform.SetParent(null);
     }
@@ -160,5 +197,6 @@ public class GripclawsManager : MonoBehaviour
         hand.handTransform.rotation = hand.startPoint.rotation;
         hand.isFlying = false;
         hand.isAttached = false;
+        hand.attachedRB = null;
     }
 }

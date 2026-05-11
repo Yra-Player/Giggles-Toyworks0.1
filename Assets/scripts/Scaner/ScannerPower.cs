@@ -1,89 +1,45 @@
-using UnityEngine;
+п»їusing UnityEngine;
 using System.Collections;
 using UnityEngine.UI;
 
 public class ScannerPower : MonoBehaviour
 {
-    [Header("Настройки времени")]
-    public float totalScanTime = 3f;      // Сколько сканирование длилось БЫ в идеале
-    public float timeUntilFailure = 1f;  // Точный момент обрыва (1 секунда)
-    public string PlayerTag = "Left_Arm";
+    [Header("РќР°СЃС‚СЂРѕР№РєРё РІСЂРµРјРµРЅРё")]
+    public float totalScanTime = 3f;      
+    public float timeUntilFailure = 1f;  
+    public string playerTag = "Left_Arm"; 
 
-    [Header("Интерфейс")]
+    [Header("РРЅС‚РµСЂС„РµР№СЃ")]
     public Image progressImage;
     public Color startColor = Color.red;
     public Color endColor = Color.green;
 
-    [Header("Визуал сканера")]
+    [Header("Р’РёР·СѓР°Р» СЃРєР°РЅРµСЂР°")]
     public Renderer scannerModelRenderer;
     public Color scannerActiveColor = Color.blue;
     public Color scannerBrokenColor = Color.red;
+    public Color scannerSuccessColor = Color.green;
+    public SpecialDoor doorScript;
 
     private bool _isBroken = false;
+    private bool _receivingPower = false; // Р¤Р»Р°Рі РїРѕР»СѓС‡РµРЅРёСЏ СЌРЅРµСЂРіРёРё
     private Coroutine _scanCoroutine;
+    private bool _isPermanentlyPowered = false;
 
-    private void Start()
+    // --- РџРЈР‘Р›РР§РќР«Р• РњР•РўРћР”Р« (Р’Р·Р°РёРјРѕРґРµР№СЃС‚РІРёРµ) ---
+
+    // Р­С‚РѕС‚ РјРµС‚РѕРґ РІС‹Р·С‹РІР°РµС‚ PowerBox С‡РµСЂРµР· РєРѕСЂСѓС‚РёРЅСѓ
+    public void ReceiveExternalPower()
     {
-        if (progressImage != null) progressImage.gameObject.SetActive(false);
-        if (scannerModelRenderer != null) scannerModelRenderer.material.color = scannerActiveColor;
+        _receivingPower = true;
     }
 
-    private void OnTriggerEnter(Collider other)
+    public void SetPermanentPower()
     {
-        if (_isBroken || !other.CompareTag(PlayerTag)) return;
-
-        if (progressImage != null)
-        {
-            progressImage.gameObject.SetActive(true);
-            progressImage.fillAmount = 0;
-            progressImage.color = startColor;
-        }
-        _scanCoroutine = StartCoroutine(BrokenScanRoutine());
+        _isPermanentlyPowered = true;
+        Debug.Log("РЎРєР°РЅРµСЂ: РџРёС‚Р°РЅРёРµ Р·Р°С†РёРєР»РµРЅРѕ, СЏ Р±РѕР»СЊС€Рµ РЅРµ СЃР»РѕРјР°СЋСЃСЊ!");
     }
 
-    private IEnumerator BrokenScanRoutine()
-    {
-        float timer = 0f;
-
-        // Цикл работает только до момента поломки
-        while (timer < timeUntilFailure)
-        {
-            timer += Time.deltaTime;
-            float progress = timer / totalScanTime; // Прогресс считаем от общего времени
-
-            if (progressImage != null)
-            {
-                progressImage.fillAmount = progress;
-                progressImage.color = Color.Lerp(startColor, endColor, progress);
-            }
-            yield return null;
-        }
-
-        // --- МОМЕНТ ПОЛОМКИ ---
-        _isBroken = true;
-
-        // Меняем цвет сканера на красный (сломан)
-        if (scannerModelRenderer != null)
-            scannerModelRenderer.material.color = scannerBrokenColor;
-
-        // Опционально: можно сделать цвет полоски серым или ярко-красным в момент замирания
-        if (progressImage != null) progressImage.color = Color.red;
-
-        Debug.Log("СИСТЕМНАЯ ОШИБКА: Сканирование прервано на " + timeUntilFailure + " сек.");
-
-        // Корутина просто заканчивается, оставляя progressImage.fillAmount в текущем положении
-        _scanCoroutine = null;
-    }
-
-    private void OnTriggerExit(Collider other)
-    {
-        // Если сканер УЖЕ сломался, мы НЕ прячем полоску, она остается "зависшей" на экране
-        if (!_isBroken && other.CompareTag(PlayerTag) && _scanCoroutine != null)
-        {
-            StopCoroutine(_scanCoroutine);
-            if (progressImage != null) progressImage.gameObject.SetActive(false);
-        }
-    }
     public void Restore()
     {
         _isBroken = false;
@@ -95,6 +51,92 @@ public class ScannerPower : MonoBehaviour
             progressImage.fillAmount = 0;
             progressImage.gameObject.SetActive(false);
         }
-        Debug.Log("Питание восстановлено, сканер готов к работе!");
+        Debug.Log("РЎРёСЃС‚РµРјР° РїРµСЂРµР·Р°РіСЂСѓР¶РµРЅР°, СЃРєР°РЅРµСЂ РіРѕС‚РѕРІ!");
+    }
+
+    // --- Р›РћР“РРљРђ UNITY ---
+
+    private void Start()
+    {
+        if (progressImage != null) progressImage.gameObject.SetActive(false);
+        if (scannerModelRenderer != null) scannerModelRenderer.material.color = scannerActiveColor;
+    }
+
+    private void OnTriggerEnter(Collider other)
+    {
+        if (_isBroken || !other.CompareTag(playerTag)) return;
+
+        if (progressImage != null)
+        {
+            progressImage.gameObject.SetActive(true);
+            progressImage.fillAmount = 0;
+            progressImage.color = startColor;
+        }
+
+        if (_scanCoroutine != null) StopCoroutine(_scanCoroutine);
+        _scanCoroutine = StartCoroutine(SmartScanRoutine());
+    }
+
+    private void OnTriggerExit(Collider other)
+    {
+        // Р•СЃР»Рё СЃРєР°РЅРµСЂ РЅРµ СЃР»РѕРјР°РЅ, РїСЂСЏС‡РµРј РїРѕР»РѕСЃРєСѓ РїСЂРё СѓС…РѕРґРµ СЂСѓРєРё
+        if (!_isBroken && other.CompareTag(playerTag) && _scanCoroutine != null)
+        {
+            StopCoroutine(_scanCoroutine);
+            _scanCoroutine = null;
+            if (progressImage != null) progressImage.gameObject.SetActive(false);
+        }
+    }
+
+    // --- РљРћР РЈРўРРќРђ РЎРљРђРќРР РћР’РђРќРРЇ ---
+
+    private IEnumerator SmartScanRoutine()
+    {
+        float timer = 0f;
+
+        while (timer < totalScanTime)
+        {
+
+            if (timer >= timeUntilFailure && !_receivingPower && !_isPermanentlyPowered)
+            {
+                BreakSystem();
+                yield break;
+            }
+
+            timer += Time.deltaTime;
+            float progress = timer / totalScanTime;
+
+            if (progressImage != null)
+            {
+                progressImage.fillAmount = progress;
+                progressImage.color = Color.Lerp(startColor, endColor, progress);
+            }
+
+            // Р’РђР–РќРћ: РЎР±СЂР°СЃС‹РІР°РµРј С„Р»Р°Рі РєР°Р¶РґС‹Р№ РєР°РґСЂ. 
+            // Р•СЃР»Рё PowerBox РЅРµ РІС‹Р·РѕРІРµС‚ ReceiveExternalPower РЅР° СЃР»РµРґСѓСЋС‰РµРј РєР°РґСЂРµ, РїРёС‚Р°РЅРёРµ РїСЂРѕРїР°РґРµС‚.
+            _receivingPower = false;
+
+            yield return null;
+        }
+
+        Success();
+    }
+
+    private void BreakSystem()
+    {
+        _isBroken = true;
+        if (scannerModelRenderer != null) scannerModelRenderer.material.color = scannerBrokenColor;
+        if (progressImage != null) progressImage.color = Color.red;
+
+        Debug.Log("вљ пёЏ РљР РРўРР§Р•РЎРљРђРЇ РћРЁРР‘РљРђ: РџРёС‚Р°РЅРёРµ РїСЂРµСЂРІР°РЅРѕ РЅР° " + timeUntilFailure + " СЃРµРє.");
+        _scanCoroutine = null;
+    }
+
+    private void Success()
+    {
+        if (scannerModelRenderer != null) scannerModelRenderer.material.color = scannerSuccessColor;
+        Debug.Log("вњ… РЎРљРђРќРР РћР’РђРќРР• Р—РђР’Р•Р РЁР•РќРћ РЈРЎРџР•РЁРќРћ!");
+        if (doorScript != null) doorScript.StartOpening();
+        _scanCoroutine = null;
     }
 }

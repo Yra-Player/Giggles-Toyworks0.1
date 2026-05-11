@@ -4,7 +4,7 @@ using System.Collections;
 public class TestDoor : MonoBehaviour
 {
     public Scanner targetScanner;
-    private float OpenHeight = 15f;
+    private float OpenHeight = 18f;
     public float Speed = 2f;
 
     private void OnEnable()
