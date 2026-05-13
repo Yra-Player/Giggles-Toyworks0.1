@@ -63,6 +63,6 @@ public class PowerBox : MonoBehaviour, IGripInteractable
         _powerRoutine = null;
     }
 
-    public void OnGripStart() => StartProvidingPower();
+    public void OnGripStart(int mouseButton) => StartProvidingPower();
     public void OnGripStop() => StopProvidingPower();
 }

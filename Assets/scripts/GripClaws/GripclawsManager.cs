@@ -107,7 +107,7 @@ public class GripclawsManager : MonoBehaviour
             {
                 if (hit.collider.transform != playerTransform && !hit.collider.transform.IsChildOf(playerTransform))
                 {
-                    if (hit.collider.CompareTag("Scanner") || hit.collider.CompareTag(draggableTag))
+                    if (hit.collider.CompareTag("Scanner") || hit.collider.CompareTag(draggableTag) || hit.collider.CompareTag("LeverL"))
                     {
                         hand.handTransform.position = hit.point;
                         hand.handTransform.forward = hit.normal * -1;
@@ -143,12 +143,8 @@ public class GripclawsManager : MonoBehaviour
         hand.handTransform.SetParent(hit.transform);
         hand.attachedRB = hit.collider.GetComponent<Rigidbody>();
 
-        // --- Взаимодействие с интерфейсом ---
-        if (hit.collider.TryGetComponent(out IGripInteractable interactable))
-        {
-            hand.activeInteractable = interactable;
-            hand.activeInteractable.OnGripStart();
-        }
+        // Пытаемся найти скрипт левого рычага на объекте, куда прилипли
+        LeftLever leftLever = hit.collider.GetComponent<LeftLever>();
 
         float pressTimer = 0;
         while (Input.GetMouseButton(hand.inputButton)) yield return null;
@@ -163,7 +159,14 @@ public class GripclawsManager : MonoBehaviour
             if (Input.GetMouseButton(hand.inputButton))
             {
                 pressTimer += Time.deltaTime;
-                if (pressTimer > 0.15f && hand.attachedRB != null)
+
+                // ЕСЛИ ЭТО РЫЧАГ: крутим его каждый кадр удержания кнопки
+                if (leftLever != null)
+                {
+                    leftLever.PullLever();
+                }
+                // ИНАЧЕ: это обычная коробка, применяем к ней силу притягивания
+                else if (pressTimer > 0.15f && hand.attachedRB != null)
                 {
                     Vector3 dir = hand.startPoint.position - hand.handTransform.position;
                     hand.attachedRB.AddForce(dir.normalized * pullStrength, ForceMode.Acceleration);
@@ -171,23 +174,29 @@ public class GripclawsManager : MonoBehaviour
             }
             else
             {
+                // Если игрок отпустил кнопку, а это был рычаг — плавно возвращаем его в 0
+                if (leftLever != null)
+                {
+                    leftLever.ResetLever();
+                }
+
                 if (pressTimer > 0.01f && pressTimer <= 0.15f) break;
                 pressTimer = 0;
             }
             yield return null;
         }
 
-        // --- Завершение взаимодействия ---
-        if (hand.activeInteractable != null)
+        // Если рука окончательно отцепляется или улетает назад по дистанции
+        if (leftLever != null)
         {
-            hand.activeInteractable.OnGripStop();
-            hand.activeInteractable = null;
+            leftLever.ResetLever();
         }
 
         lastDetachTime = Time.time;
         hand.isAttached = false;
         hand.handTransform.SetParent(null);
     }
+
 
     void ResetHand(HandData hand)
     {

@@ -17,6 +17,7 @@ TagManager:
   - In
   - Out
   - Box
+  - LeverL
   layers:
   - Default
   - TransparentFX

@@ -3,7 +3,7 @@
 
     public interface IGripInteractable
     {
-        void OnGripStart();
+        void OnGripStart(int mouseButton);
         void OnGripStop();
     }
 
