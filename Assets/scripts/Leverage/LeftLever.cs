@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 
 public class LeftLever : MonoBehaviour
@@ -10,6 +11,11 @@ public class LeftLever : MonoBehaviour
     private float currentAngle = 0f;
     private bool isFullyActivated = false;
 
+    private Coroutine pullCoroutine;
+    private Coroutine resetCoroutine;
+
+    [HideInInspector] public System.Action<LeftLever> OnLeverActivated;
+
     void Start()
     {
         if (leverHandle == null) leverHandle = this.transform;
@@ -19,22 +25,70 @@ public class LeftLever : MonoBehaviour
     {
         if (isFullyActivated) return;
 
-        currentAngle = Mathf.MoveTowards(currentAngle, targetAngle, rotationSpeed * Time.deltaTime * 50f);
-        leverHandle.localRotation = Quaternion.Euler(0f, 0f, currentAngle);
 
-        if (Mathf.Approximately(currentAngle, targetAngle))
+        if (resetCoroutine != null)
         {
-            isFullyActivated = true;
-            Debug.Log("<color=green>кебши пшвюц носыем дн сонпю!</color>");
+            StopCoroutine(resetCoroutine);
+            resetCoroutine = null;
         }
+
+        if (pullCoroutine != null) return;
+
+        pullCoroutine = StartCoroutine(PullRoutine());
     }
 
     public void ResetLever()
     {
         if (isFullyActivated) return;
 
-        currentAngle = Mathf.MoveTowards(currentAngle, 0f, rotationSpeed * Time.deltaTime * 50f);
+        if (pullCoroutine != null)
+        {
+            StopCoroutine(pullCoroutine);
+            pullCoroutine = null;
+        }
+
+        if (resetCoroutine == null)
+        {
+            resetCoroutine = StartCoroutine(ResetRoutine());
+        }
+    }
+
+    private IEnumerator PullRoutine()
+    {
+        while (Mathf.Abs(currentAngle - targetAngle) > 0.5f)
+        {
+            currentAngle = Mathf.MoveTowards(currentAngle, targetAngle, rotationSpeed * Time.deltaTime * 50f);
+            leverHandle.localRotation = Quaternion.Euler(0f, 0f, currentAngle);
+            yield return null;
+        }
+        currentAngle = targetAngle;
         leverHandle.localRotation = Quaternion.Euler(0f, 0f, currentAngle);
+        isFullyActivated = true;
+        pullCoroutine = null;
+
+        Debug.Log($"<color=green>[пшвюц] {gameObject.name} носыем дн сонпю!</color>");
+
+        HydraulicPuzzleManager manager = FindObjectOfType<HydraulicPuzzleManager>();
+        if (manager != null)
+        {
+            manager.CheckPuzzleConditionManual();
+        }
+
+        OnLeverActivated?.Invoke(this);
+    }
+
+    private IEnumerator ResetRoutine()
+    {
+        while (!Mathf.Approximately(currentAngle, 0f))
+        {
+            currentAngle = Mathf.MoveTowards(currentAngle, 0f, rotationSpeed * Time.deltaTime * 50f);
+            leverHandle.localRotation = Quaternion.Euler(0f, 0f, currentAngle);
+            yield return null;
+        }
+
+        currentAngle = 0f;
+        leverHandle.localRotation = Quaternion.Euler(0f, 0f, currentAngle);
+        resetCoroutine = null;
     }
 
     public bool IsActivated() => isFullyActivated;
