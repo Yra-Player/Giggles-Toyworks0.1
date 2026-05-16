@@ -146,6 +146,14 @@ public class GripclawsManager : MonoBehaviour
         // Пытаемся найти скрипт левого рычага на объекте, куда прилипли
         LeftLever leftLever = hit.collider.GetComponent<LeftLever>();
 
+
+        hand.activeInteractable = hit.collider.GetComponent<IGripInteractable>();
+
+        if (hand.activeInteractable != null)
+        {
+            hand.activeInteractable.OnGripStart(hand.inputButton);
+        }
+
         float pressTimer = 0;
         while (Input.GetMouseButton(hand.inputButton)) yield return null;
 
