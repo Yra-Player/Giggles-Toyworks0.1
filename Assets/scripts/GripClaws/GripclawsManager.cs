@@ -16,7 +16,7 @@ public class GripclawsManager : MonoBehaviour
         [HideInInspector] public bool isFlying = false;
         [HideInInspector] public bool isAttached = false;
         [HideInInspector] public Rigidbody attachedRB;
-        [HideInInspector] public IGripInteractable activeInteractable; // Ссылка на интерфейс для каждой руки
+        [HideInInspector] public IGripInteractable activeInteractable;
     }
 
     [Header("Hands Setup")]
@@ -34,6 +34,11 @@ public class GripclawsManager : MonoBehaviour
     public float pullStrength = 150f;
     public string draggableTag = "Box";
     public float shootCooldown = 0.5f;
+
+    [Header("Juiciness & Feedback")]
+    [Tooltip("Время (в секундах), на которое рука замирает при попадании в цель, давая игроку шанс зажать кнопку")]
+    public float hitStickDuration = 0.35f;
+
     private float lastDetachTime;
 
     void Start()
@@ -107,7 +112,7 @@ public class GripclawsManager : MonoBehaviour
             {
                 if (hit.collider.transform != playerTransform && !hit.collider.transform.IsChildOf(playerTransform))
                 {
-                    if (hit.collider.CompareTag("Scanner") || hit.collider.CompareTag(draggableTag) || hit.collider.CompareTag("LeverL"))
+                    if (hit.collider.CompareTag("Scanner") || hit.collider.CompareTag(draggableTag) || hit.collider.CompareTag("LeverL") || hit.collider.CompareTag("Lever"))
                     {
                         hand.handTransform.position = hit.point;
                         hand.handTransform.forward = hit.normal * -1;
@@ -143,10 +148,7 @@ public class GripclawsManager : MonoBehaviour
         hand.handTransform.SetParent(hit.transform);
         hand.attachedRB = hit.collider.GetComponent<Rigidbody>();
 
-        // Пытаемся найти скрипт левого рычага на объекте, куда прилипли
         LeftLever leftLever = hit.collider.GetComponent<LeftLever>();
-
-
         hand.activeInteractable = hit.collider.GetComponent<IGripInteractable>();
 
         if (hand.activeInteractable != null)
@@ -154,8 +156,22 @@ public class GripclawsManager : MonoBehaviour
             hand.activeInteractable.OnGripStart(hand.inputButton);
         }
 
+        // --- ДОБАВЛЕНО: ЭФФЕКТ ПРИЛИПАНИЯ (HIT STICK) ---
+        // Рука "залипает" на объекте на долю секунды, давая игроку визуальный отклик попадания
+        float stickTimer = 0f;
+        while (stickTimer < hitStickDuration)
+        {
+            stickTimer += Time.deltaTime;
+
+            // Если во время залипания игрок УЖЕ зажал кнопку — сразу выходим из этого ожидания в цикл удержания
+            if (Input.GetMouseButton(hand.inputButton))
+                break;
+
+            yield return null;
+        }
+        // -----------------------------------------------
+
         float pressTimer = 0;
-        while (Input.GetMouseButton(hand.inputButton)) yield return null;
 
         while (hand.isAttached)
         {
@@ -168,12 +184,10 @@ public class GripclawsManager : MonoBehaviour
             {
                 pressTimer += Time.deltaTime;
 
-                // ЕСЛИ ЭТО РЫЧАГ: крутим его каждый кадр удержания кнопки
                 if (leftLever != null)
                 {
                     leftLever.PullLever();
                 }
-                // ИНАЧЕ: это обычная коробка, применяем к ней силу притягивания
                 else if (pressTimer > 0.15f && hand.attachedRB != null)
                 {
                     Vector3 dir = hand.startPoint.position - hand.handTransform.position;
@@ -182,19 +196,17 @@ public class GripclawsManager : MonoBehaviour
             }
             else
             {
-                // Если игрок отпустил кнопку, а это был рычаг — плавно возвращаем его в 0
                 if (leftLever != null)
                 {
                     leftLever.ResetLever();
                 }
 
                 if (pressTimer > 0.01f && pressTimer <= 0.15f) break;
-                pressTimer = 0;
+                break;
             }
             yield return null;
         }
 
-        // Если рука окончательно отцепляется или улетает назад по дистанции
         if (leftLever != null)
         {
             leftLever.ResetLever();
@@ -204,7 +216,6 @@ public class GripclawsManager : MonoBehaviour
         hand.isAttached = false;
         hand.handTransform.SetParent(null);
     }
-
 
     void ResetHand(HandData hand)
     {
