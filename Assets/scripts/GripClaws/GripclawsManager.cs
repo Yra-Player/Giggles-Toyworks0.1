@@ -112,7 +112,7 @@ public class GripclawsManager : MonoBehaviour
             {
                 if (hit.collider.transform != playerTransform && !hit.collider.transform.IsChildOf(playerTransform))
                 {
-                    if (hit.collider.CompareTag("Scanner") || hit.collider.CompareTag(draggableTag) || hit.collider.CompareTag("LeverL") || hit.collider.CompareTag("Lever"))
+                    if (hit.collider.CompareTag("Scanner") || hit.collider.CompareTag(draggableTag) || hit.collider.CompareTag("LeverL"))
                     {
                         hand.handTransform.position = hit.point;
                         hand.handTransform.forward = hit.normal * -1;
