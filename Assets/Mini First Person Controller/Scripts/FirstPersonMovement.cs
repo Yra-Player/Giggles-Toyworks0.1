@@ -1,44 +1,55 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
 
+[RequireComponent(typeof(Rigidbody))]
 public class FirstPersonMovement : MonoBehaviour
 {
-    public float speed = 5;
-
-    [Header("Running")]
+    [Header("Base Speed")]
+    public float speed = 5f;
+    public float runSpeed = 9f;
     public bool canRun = true;
-    public bool IsRunning { get; private set; }
-    public float runSpeed = 9;
     public KeyCode runningKey = KeyCode.LeftShift;
 
-    Rigidbody rigidbody;
+    public bool IsRunning { get; private set; }
+
     /// <summary> Functions to override movement speed. Will use the last added override. </summary>
     public List<System.Func<float>> speedOverrides = new List<System.Func<float>>();
 
-
+    private Rigidbody rb;
+    private Vector2 inputVector;
+    private bool runInput;
 
     void Awake()
     {
-        // Get the rigidbody on this.
-        rigidbody = GetComponent<Rigidbody>();
+        rb = GetComponent<Rigidbody>();
+        rb.freezeRotation = true; // Защита от случайного падения персонажа на бок
+    }
+
+    void Update()
+    {
+        // Опрашиваем кнопки строго в Update (работает без пропусков)
+        inputVector.x = Input.GetAxisRaw("Horizontal");
+        inputVector.y = Input.GetAxisRaw("Vertical");
+        runInput = Input.GetKey(runningKey);
     }
 
     void FixedUpdate()
     {
-        // Update IsRunning from input.
-        IsRunning = canRun && Input.GetKey(runningKey);
+        IsRunning = canRun && runInput;
 
-        // Get targetMovingSpeed.
         float targetMovingSpeed = IsRunning ? runSpeed : speed;
         if (speedOverrides.Count > 0)
         {
             targetMovingSpeed = speedOverrides[speedOverrides.Count - 1]();
         }
 
-        // Get targetVelocity from input.
-        Vector2 targetVelocity =new Vector2( Input.GetAxis("Horizontal") * targetMovingSpeed, Input.GetAxis("Vertical") * targetMovingSpeed);
+        // Нормализуем вектор, чтобы скорость по диагонали не удваивалась
+        Vector3 moveDirection = new Vector3(inputVector.x, 0, inputVector.y).normalized;
+        Vector3 targetVelocity = transform.rotation * moveDirection * targetMovingSpeed;
 
-        // Apply movement.
-        rigidbody.linearVelocity = transform.rotation * new Vector3(targetVelocity.x, rigidbody.linearVelocity.y, targetVelocity.y);
+        // Удерживаем текущую скорость прыжка/падения
+        targetVelocity.y = rb.linearVelocity.y;
+
+        rb.linearVelocity = targetVelocity;
     }
 }
