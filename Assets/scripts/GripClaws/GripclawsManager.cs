@@ -84,9 +84,22 @@ public class GripclawsManager : MonoBehaviour
     {
         while (true)
         {
+            // Проверяем, карабкается ли игрок прямо сейчас
+            bool playerIsClimbing = false;
+            if (playerTransform != null)
+            {
+                var movement = playerTransform.GetComponent<FirstPersonMovement>();
+                if (movement != null)
+                {
+                    playerIsClimbing = movement.IsClimbing; // Считываем состояние из скрипта движения
+                }
+            }
+
+            // Условие выстрела: добавлена проверка !playerIsClimbing (не карабкается)
             if (hand.handTransform.gameObject.activeInHierarchy &&
                 Input.GetMouseButtonDown(hand.inputButton) &&
                 !hand.isFlying && !hand.isAttached &&
+                !playerIsClimbing &&
                 Time.time > lastDetachTime + shootCooldown)
             {
                 StartCoroutine(ClawRoutine(hand));
@@ -112,7 +125,9 @@ public class GripclawsManager : MonoBehaviour
             {
                 if (hit.collider.transform != playerTransform && !hit.collider.transform.IsChildOf(playerTransform))
                 {
-                    if (hit.collider.CompareTag("Scanner") || hit.collider.CompareTag(draggableTag) || hit.collider.CompareTag("LeverL"))
+                    // ДОБАВЛЕНО: поддержка вашего нового тега "LadderHandle"
+                    if (hit.collider.CompareTag("Scanner") || hit.collider.CompareTag(draggableTag) ||
+                        hit.collider.CompareTag("LeverL") || hit.collider.CompareTag("LadderHandle"))
                     {
                         hand.handTransform.position = hit.point;
                         hand.handTransform.forward = hit.normal * -1;
@@ -156,20 +171,15 @@ public class GripclawsManager : MonoBehaviour
             hand.activeInteractable.OnGripStart(hand.inputButton);
         }
 
-        // --- ДОБАВЛЕНО: ЭФФЕКТ ПРИЛИПАНИЯ (HIT STICK) ---
-        // Рука "залипает" на объекте на долю секунды, давая игроку визуальный отклик попадания
         float stickTimer = 0f;
         while (stickTimer < hitStickDuration)
         {
             stickTimer += Time.deltaTime;
-
-            // Если во время залипания игрок УЖЕ зажал кнопку — сразу выходим из этого ожидания в цикл удержания
             if (Input.GetMouseButton(hand.inputButton))
                 break;
 
             yield return null;
         }
-        // -----------------------------------------------
 
         float pressTimer = 0;
 
@@ -201,6 +211,11 @@ public class GripclawsManager : MonoBehaviour
                     leftLever.ResetLever();
                 }
 
+                if (hand.activeInteractable != null)
+                {
+                    hand.activeInteractable.OnGripStop(); // Корректно вызываем остановку взаимодействия
+                }
+
                 if (pressTimer > 0.01f && pressTimer <= 0.15f) break;
                 break;
             }
@@ -210,6 +225,11 @@ public class GripclawsManager : MonoBehaviour
         if (leftLever != null)
         {
             leftLever.ResetLever();
+        }
+
+        if (hand.activeInteractable != null)
+        {
+            hand.activeInteractable.OnGripStop();
         }
 
         lastDetachTime = Time.time;
