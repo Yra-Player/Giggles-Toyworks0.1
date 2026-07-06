@@ -23,10 +23,16 @@ public class FirstPersonMovement : MonoBehaviour
     private bool runInput;
     public bool IsClimbing = false; // Находится ли игрок на лестнице
 
+    // Ссылка на компонент проверки земли, чтобы знать, когда мы летим
+    private GroundCheck playerGroundCheck;
+
     void Awake()
     {
         rb = GetComponent<Rigidbody>();
         rb.freezeRotation = true; // Защита от случайного падения персонажа на бок
+
+        // Находим GroundCheck в дочерних объектах игрока (так же, как это делает ваш скрипт Jump)
+        playerGroundCheck = GetComponentInChildren<GroundCheck>();
     }
 
     void Update()
@@ -42,21 +48,24 @@ public class FirstPersonMovement : MonoBehaviour
         if (IsClimbing)
         {
             // --- ЛОГИКА КАРАБКАНИЯ ПО ЛЕСТНИЦЕ ---
-            // Полностью гасим обычную физику и гравитацию, чтобы игрок не соскальзывал вниз
             rb.useGravity = false;
 
-            // Двигаем игрока вверх-вниз в зависимости от нажатия W / S (inputVector.y)
             Vector3 climbVelocity = new Vector3(0, inputVector.y * climbSpeed, 0);
-
-            // Также позволяем игроку немного подруливать по горизонтали (вбок), чтобы сойти с лестницы на площадку
             Vector3 horizontalMove = transform.rotation * new Vector3(inputVector.x, 0, 0).normalized * speed;
 
             rb.linearVelocity = climbVelocity + horizontalMove;
         }
         else
         {
-            // --- ОБЫЧНОЕ ДВИЖЕНИЕ НА ЗЕМЛЕ ---
+            // --- ОБЫЧНОЕ ДВИЖЕНИЕ И ПАДЕНИЕ ---
             rb.useGravity = true;
+
+            // Если датчик земли существует и сообщает, что мы НЕ на земле (летим/падаем)
+            if (playerGroundCheck != null && !playerGroundCheck.isGrounded)
+            {
+                // Полностью блокируем WASD-управление. Rigidbody летит чисто по физической инерции падения.
+                return;
+            }
 
             IsRunning = canRun && runInput;
 
@@ -80,7 +89,6 @@ public class FirstPersonMovement : MonoBehaviour
     // --- ОТСЛЕЖИВАНИЕ ЗОНЫ ЛЕСТНИЦЫ ---
     private void OnTriggerEnter(Collider other)
     {
-        // Проверяем тег триггера, который вы создали внутри префаба лестницы
         if (other.CompareTag("Ladder"))
         {
             IsClimbing = true;
