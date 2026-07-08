@@ -1,16 +1,32 @@
 using UnityEngine;
 
-public class CheckpointTrigger : MonoBehaviour
+public class Checkpoint : MonoBehaviour
 {
-    private bool isTriggered = false;
+    [Header("Точка спавна игрока")]
+    [Tooltip("Создайте внутри чекпоинта пустой объект (безопасное место на полу) и перетащите сюда")]
+    public Transform spawnPoint;
 
-    void OnTriggerEnter(Collider other)
+    private bool _isTriggered = false;
+
+    private void OnTriggerEnter(Collider other)
     {
-        // Проверяем тег игрока и то, что триггер еще не срабатывал в этой сессии
-        if (!isTriggered && other.CompareTag("Player"))
+        if (!_isTriggered && other.CompareTag("Player"))
         {
-            CheckpointManager.SavePosition(transform.position);
-            isTriggered = true; // Блокируем триггер, чтобы он больше не сейвил при спавне игрока
+            if (spawnPoint != null)
+            {
+                // Сохраняем ТОЛЬКО координаты
+                PlayerPrefs.SetFloat("CheckpointX", spawnPoint.position.x);
+                PlayerPrefs.SetFloat("CheckpointY", spawnPoint.position.y);
+                PlayerPrefs.SetFloat("CheckpointZ", spawnPoint.position.z);
+                PlayerPrefs.Save();
+
+                _isTriggered = true;
+                Debug.Log($"[Checkpoint] Координаты сохранены в точке: {spawnPoint.position}");
+            }
+            else
+            {
+                Debug.LogError($"[Checkpoint] Ошибка: На объекте {gameObject.name} не назначен Spawn Point!");
+            }
         }
     }
 }

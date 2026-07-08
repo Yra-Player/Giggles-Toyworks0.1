@@ -28,11 +28,16 @@ public class MainMenu : MonoBehaviour
     // Этот метод вешаем на кнопку "НОВАЯ ИГРА"
     public void NewGame()
     {
-        // Стираем старые координаты и статус руки, чтобы начать чисто с лобби/начала главы
+        // Полностью стираем старые координаты чекпоинтов
         PlayerPrefs.DeleteKey("CheckpointX");
         PlayerPrefs.DeleteKey("CheckpointY");
         PlayerPrefs.DeleteKey("CheckpointZ");
-        PlayerPrefs.DeleteKey("HasRightHand");
+
+        // ЖЕСТКО сбрасываем обе руки в состояние "не подобрано" (0)
+        PlayerPrefs.SetInt("HasLeftHand", 0);
+        PlayerPrefs.SetInt("HasRightHand", 0);
+
+        // Принудительно сохраняем изменения в памяти
         PlayerPrefs.Save();
 
         // Запускаем игру с самого начала

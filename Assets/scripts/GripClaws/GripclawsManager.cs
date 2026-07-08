@@ -41,6 +41,25 @@ public class GripclawsManager : MonoBehaviour
 
     private float lastDetachTime;
 
+    // ИЗМЕНЕНИЕ 1: Метод OnEnable принудительно перезапускает логику ввода рук при активации Греппака менеджером
+    void OnEnable()
+    {
+        StopAllCoroutines();
+        if (hands != null)
+        {
+            foreach (var hand in hands)
+            {
+                if (hand.handTransform != null)
+                {
+                    if (hand.originalParent == null)
+                        hand.originalParent = hand.handTransform.parent;
+
+                    StartCoroutine(InputListener(hand));
+                }
+            }
+        }
+    }
+
     void Start()
     {
         if (playerCamera == null) playerCamera = Camera.main;
@@ -50,13 +69,13 @@ public class GripclawsManager : MonoBehaviour
         {
             if (hand.handTransform != null)
             {
-                hand.originalParent = hand.handTransform.parent;
+                if (hand.originalParent == null)
+                    hand.originalParent = hand.handTransform.parent;
+
                 if (hand.rope != null) hand.rope.enabled = false;
 
                 Rigidbody rb = hand.handTransform.GetComponent<Rigidbody>();
                 if (rb != null) rb.isKinematic = true;
-
-                StartCoroutine(InputListener(hand));
             }
         }
     }
@@ -84,18 +103,16 @@ public class GripclawsManager : MonoBehaviour
     {
         while (true)
         {
-            // Проверяем, карабкается ли игрок прямо сейчас
             bool playerIsClimbing = false;
             if (playerTransform != null)
             {
                 var movement = playerTransform.GetComponent<FirstPersonMovement>();
                 if (movement != null)
                 {
-                    playerIsClimbing = movement.IsClimbing; // Считываем состояние из скрипта движения
+                    playerIsClimbing = movement.IsClimbing;
                 }
             }
 
-            // Условие выстрела: добавлена проверка !playerIsClimbing (не карабкается)
             if (hand.handTransform.gameObject.activeInHierarchy &&
                 Input.GetMouseButtonDown(hand.inputButton) &&
                 !hand.isFlying && !hand.isAttached &&
@@ -125,7 +142,6 @@ public class GripclawsManager : MonoBehaviour
             {
                 if (hit.collider.transform != playerTransform && !hit.collider.transform.IsChildOf(playerTransform))
                 {
-                    // ДОБАВЛЕНО: поддержка вашего нового тега "LadderHandle"
                     if (hit.collider.CompareTag("Scanner") || hit.collider.CompareTag(draggableTag) ||
                         hit.collider.CompareTag("LeverL") || hit.collider.CompareTag("LadderHandle"))
                     {
@@ -213,7 +229,7 @@ public class GripclawsManager : MonoBehaviour
 
                 if (hand.activeInteractable != null)
                 {
-                    hand.activeInteractable.OnGripStop(); // Корректно вызываем остановку взаимодействия
+                    hand.activeInteractable.OnGripStop();
                 }
 
                 if (pressTimer > 0.01f && pressTimer <= 0.15f) break;
@@ -237,10 +253,16 @@ public class GripclawsManager : MonoBehaviour
         hand.handTransform.SetParent(null);
     }
 
+    // ИЗМЕНЕНИЕ 2: Метод ResetHand полностью защищен от потери родителей рук
     void ResetHand(HandData hand)
     {
         if (hand.rope != null) hand.rope.enabled = false;
-        hand.handTransform.SetParent(hand.originalParent);
+
+        if (hand.originalParent != null)
+            hand.handTransform.SetParent(hand.originalParent);
+        else
+            hand.handTransform.SetParent(transform);
+
         hand.handTransform.position = hand.startPoint.position;
         hand.handTransform.rotation = hand.startPoint.rotation;
         hand.isFlying = false;

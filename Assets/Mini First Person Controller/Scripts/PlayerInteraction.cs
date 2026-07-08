@@ -19,8 +19,20 @@ public class PlayerInteraction : MonoBehaviour
 
     void Start()
     {
-        if (rightArmShoulder != null) rightArmShoulder.SetActive(false);
-        if (rightHandModel != null) rightHandModel.SetActive(false);
+        // ИЗМЕНЕНИЕ 1: Теперь при старте мы НЕ выключаем руку вслепую.
+        // Мы проверяем: если в памяти ЕСТЬ сохранение правой руки, мы оставляем её ВКЛЮЧЕННОЙ.
+        // Если сейва нет (новая игра) — тогда выключаем.
+        if (PlayerPrefs.GetInt("HasRightHand", 0) == 1)
+        {
+            if (rightArmShoulder != null) rightArmShoulder.SetActive(true);
+            if (rightHandModel != null) rightHandModel.SetActive(true);
+            Debug.Log("[PlayerInteraction] Правая рука восстановлена из сохранения при старте.");
+        }
+        else
+        {
+            if (rightArmShoulder != null) rightArmShoulder.SetActive(false);
+            if (rightHandModel != null) rightHandModel.SetActive(false);
+        }
 
         StartCoroutine(InteractionRoutine());
     }
@@ -70,8 +82,12 @@ public class PlayerInteraction : MonoBehaviour
                         if (rightArmShoulder != null) rightArmShoulder.SetActive(true);
                         if (rightHandModel != null) rightHandModel.SetActive(true);
 
+                        // ИЗМЕНЕНИЕ 2: Записываем в память, что правая рука подобрана успешно!
+                        PlayerPrefs.SetInt("HasRightHand", 1);
+                        PlayerPrefs.Save();
+
                         Destroy(hit.collider.gameObject);
-                        Debug.Log("Правая рука подобрана и активирована!");
+                        Debug.Log("[PlayerInteraction] Правая рука подобрана, активирована и сохранена в сейв!");
                     }
                     else if (isPickableKey)
                     {

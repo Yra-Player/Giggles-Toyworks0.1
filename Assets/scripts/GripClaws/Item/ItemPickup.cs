@@ -2,25 +2,46 @@ using UnityEngine;
 
 public class ItemPickup : MonoBehaviour
 {
-    public string gripClawsObjectName = "BuilversionGripClaws";
+    public enum PickupType { LeftHandWithGrappack, RightHandOnly }
+
+    [Header("Настройки предмета")]
+    public PickupType itemType;
+
+    [Tooltip("Имя корневого объекта Греппака на игроке (BuilversionGripClaws)")]
+    public string rootObjectName = "BuilversionGripClaws";
+
+    [Tooltip("Имя конкретной руки в иерархии персонажа, которую нужно включить")]
+    public string handObjectName = "ИМЯ_РУКИ_В_ИЕРАРХИИ";
+
     public KeyCode pickupKey = KeyCode.E;
 
-    private GameObject _gripClawsToEnable;
+    private GameObject _rootObject;
+    private GameObject _handObject;
     private bool _canPickUp = false;
+
+
+
+    
+    
 
     private void OnTriggerEnter(Collider other)
     {
-        // Проверяем, что в зону вошел именно игрок
         if (other.CompareTag("Player"))
         {
-            // Если мы еще не нашли ссылку на греппак, ищем её один раз
-            if (_gripClawsToEnable == null)
+            // Находим корень Греппака
+            if (_rootObject == null)
             {
-                _gripClawsToEnable = FindChildRecursive(other.transform, gripClawsObjectName);
+                _rootObject = FindChildRecursive(other.transform, rootObjectName);
+            }
+
+            // Находим конкретную руку (левую или правую)
+            if (_handObject == null)
+            {
+                _handObject = FindChildRecursive(other.transform, handObjectName);
             }
 
             _canPickUp = true;
-            Debug.Log("Нажми E, чтобы подобрать греппак");
+            Debug.Log($"Нажми [{pickupKey}], чтобы подобрать предмет: {itemType}");
         }
     }
 
@@ -34,8 +55,6 @@ public class ItemPickup : MonoBehaviour
 
     private void OnGUI()
     {
-        // Вместо Update проверяем ввод в методе событий или OnGUI 
-        // Но для KeyDown в связке с триггером лучше использовать простую логику:
         if (_canPickUp && Event.current.type == EventType.KeyDown && Event.current.keyCode == pickupKey)
         {
             PickUp();
@@ -44,12 +63,38 @@ public class ItemPickup : MonoBehaviour
 
     private void PickUp()
     {
-        if (_gripClawsToEnable != null)
+        // Проверяем, нашли ли мы корневой Греппак
+        if (_rootObject == null)
         {
-            _gripClawsToEnable.SetActive(true);
-            Debug.Log("Греппак активирован!");
-            Destroy(gameObject);
+            Debug.LogError($"[Pickup] Ошибка: Не найден корневой объект '{rootObjectName}' на игроке!");
+            return;
         }
+
+        // Проверяем, нашли ли мы саму клешню
+        if (_handObject == null)
+        {
+            Debug.LogError($"[Pickup] Ошибка: Внутри игрока не найден объект руки с именем '{handObjectName}'!");
+            return;
+        }
+
+        // Активируем корень (актуально для первой подборки) и саму руку
+        _rootObject.SetActive(true);
+        _handObject.SetActive(true);
+
+        // Записываем сохранение в зависимости от типа
+        if (itemType == PickupType.LeftHandWithGrappack)
+        {
+            PlayerPrefs.SetInt("HasLeftHand", 1);
+            Debug.Log("[Pickup] Успешно подобраны Греппак и Левая рука!");
+        }
+        else if (itemType == PickupType.RightHandOnly)
+        {
+            PlayerPrefs.SetInt("HasRightHand", 1);
+            Debug.Log("[Pickup] Успешно подобрана Правая рука!");
+        }
+
+        PlayerPrefs.Save();
+        Destroy(gameObject); // Уничтожаем предмет на полу
     }
 
     private GameObject FindChildRecursive(Transform parent, string name)

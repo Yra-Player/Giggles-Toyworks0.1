@@ -1,49 +1,112 @@
+using System.Collections;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 
 public class CheckpointManager : MonoBehaviour
 {
-    [Header("Настройки Игрока")]
-    public Transform playerTransform; // Сюда в инспекторе перетащите Plaeyry_test
+    [Header("Ссылка на игрока")]
+    public GameObject playerObject;
 
-    void Start()
+    private void Awake()
     {
-        // Загрузка позиции игрока из памяти ПК
+        // Переносим проверку в Awake, чтобы сработать РАНЬШЕ старта скриптов движения
         if (PlayerPrefs.HasKey("CheckpointX"))
         {
-            float x = PlayerPrefs.GetFloat("CheckpointX");
-            float y = PlayerPrefs.GetFloat("CheckpointY");
-            float z = PlayerPrefs.GetFloat("CheckpointZ");
-
-            Vector3 savedPosition = new Vector3(x, y, z);
-
-            // Временно отключаем физику, чтобы игрок не провалился под пол при спавне
-            Rigidbody rb = playerTransform.GetComponent<Rigidbody>();
-            if (rb != null) rb.isKinematic = true;
-
-            playerTransform.position = savedPosition;
-
-            if (rb != null) rb.isKinematic = false;
-
-            Debug.Log("Позиция игрока успешно загружена из памяти: " + savedPosition);
+            StartCoroutine(TeleportWithDelay());
+        }
+        else
+        {
+            Debug.Log("[CheckpointManager] Сохранений нет. Новая игра.");
         }
     }
 
-    // Этот метод вызывается из CheckpointTrigger
-    public static void SavePosition(Vector3 newPos)
+    private IEnumerator TeleportWithDelay()
     {
-        PlayerPrefs.SetFloat("CheckpointX", newPos.x);
-        PlayerPrefs.SetFloat("CheckpointY", newPos.y);
-        PlayerPrefs.SetFloat("CheckpointZ", newPos.z);
-        PlayerPrefs.Save();
+        if (playerObject == null)
+        {
+            Debug.LogError("[CheckpointManager] Ошибка: Не привязана ссылка на Player Object!");
+            yield break;
+        }
 
-        Debug.Log("Позиция игрока успешно сохранена на жесткий диск: " + newPos);
+        yield return new WaitForEndOfFrame();
+
+        // Считываем координаты
+        float x = PlayerPrefs.GetFloat("CheckpointX");
+        float y = PlayerPrefs.GetFloat("CheckpointY");
+        float z = PlayerPrefs.GetFloat("CheckpointZ");
+        Vector3 targetPosition = new Vector3(x, y, z);
+
+        // Находим сам триггер чекпоинта на сцене, чтобы узнать, куда направлен его "перед"
+        // (Ищем ближайший объект со скриптом Checkpoint к точке спавна)
+        Quaternion targetRotation = Quaternion.identity;
+        Checkpoint closestCheckpoint = null;
+        float closestDistance = Mathf.Infinity;
+
+        foreach (Checkpoint cp in FindObjectsByType<Checkpoint>(FindObjectsSortMode.None)) // [2026 Unity Safe Find]
+        {
+            float dist = Vector3.Distance(cp.transform.position, targetPosition);
+            if (dist < closestDistance)
+            {
+                closestDistance = dist;
+                closestCheckpoint = cp;
+            }
+        }
+
+        // Если нашли чекпоинт — берем его направление "вперед" и зануляем наклон по вертикали
+        if (closestCheckpoint != null)
+        {
+            Vector3 forwardDirection = closestCheckpoint.transform.forward;
+            forwardDirection.y = 0f; // Железно гасим взгляд в пол/потолок
+            targetRotation = Quaternion.LookRotation(forwardDirection);
+        }
+
+        // Отключаем физику и компоненты движения
+        CharacterController cc = playerObject.GetComponent<CharacterController>();
+        Rigidbody rb = playerObject.GetComponent<Rigidbody>();
+        MonoBehaviour movementScript = playerObject.GetComponent("FirstPersonMovement") as MonoBehaviour;
+        MonoBehaviour lookScript = playerObject.GetComponentInChildren<Camera>().GetComponent<MonoBehaviour>();
+        if (lookScript == null) lookScript = playerObject.GetComponent("FirstPersonLook") as MonoBehaviour;
+
+        if (cc != null) cc.enabled = false;
+        if (rb != null) rb.isKinematic = true;
+        if (movementScript != null) movementScript.enabled = false;
+        if (lookScript != null) lookScript.enabled = false;
+
+        // Железная фиксация позиции и взгляда вперед
+        for (int i = 0; i < 3; i++)
+        {
+            playerObject.transform.position = targetPosition;
+            playerObject.transform.rotation = targetRotation; // Игрок смотрит строго вперед по направлению куба!
+
+            Camera playerCam = playerObject.GetComponentInChildren<Camera>();
+            if (playerCam != null)
+            {
+                playerCam.transform.localRotation = Quaternion.identity; // Камера смотрит ровно по горизонту
+            }
+            yield return null;
+        }
+
+        // Синхронизируем внутренние углы мыши с новым направлением
+        if (lookScript != null)
+        {
+            FirstPersonLook fpl = lookScript as FirstPersonLook;
+            if (fpl != null) fpl.InitRotation();
+
+            lookScript.enabled = true;
+        }
+
+        if (cc != null) cc.enabled = true;
+        if (rb != null) rb.isKinematic = false;
+        if (movementScript != null) movementScript.enabled = true;
+
+        Debug.Log("[CheckpointManager] Игрок успешно развернут строго вперед по направлению чекпоинта.");
     }
 
-    // Метод для перезапуска сцены (для триггера смерти)
-    public void RestartScene()
+    // Оставляем старый метод для совместимости
+    public static void SavePosition(Vector3 pos)
     {
-        Scene activeScene = SceneManager.GetActiveScene();
-        SceneManager.LoadScene(activeScene.name);
+        PlayerPrefs.SetFloat("CheckpointX", pos.x);
+        PlayerPrefs.SetFloat("CheckpointY", pos.y);
+        PlayerPrefs.SetFloat("CheckpointZ", pos.z);
+        PlayerPrefs.Save();
     }
 }
