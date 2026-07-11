@@ -7,6 +7,17 @@ public class TestDoor : MonoBehaviour
     private float OpenHeight = 18f;
     public float Speed = 2f;
 
+    private Vector3 initialPosition; // —тартова€ позици€ (закрыто)
+    private Vector3 targetPosition;  //  онечна€ позици€ (открыто)
+    private Coroutine currentDoorRoutine;
+
+    private void Start()
+    {
+        initialPosition = transform.position;
+        // «аранее рассчитываем точку полного открыти€
+        targetPosition = initialPosition + Vector3.up * OpenHeight;
+    }
+
     private void OnEnable()
     {
         if (targetScanner != null)
@@ -19,23 +30,34 @@ public class TestDoor : MonoBehaviour
             targetScanner.OnScanComplete -= StartOpening;
     }
 
-    private void StartOpening()
+    public void StartOpening()
     {
-        StartCoroutine(OpenRoutine());
+        // ќстанавливаем любое текущее движение (например, закрытие)
+        if (currentDoorRoutine != null) StopCoroutine(currentDoorRoutine);
+
+        // «апускаем движение к targetPosition из текущего положени€
+        currentDoorRoutine = StartCoroutine(MoveDoorRoutine(targetPosition, "открыта"));
     }
 
-    private IEnumerator OpenRoutine()
+    public void StartClosing()
     {
-        Vector3 targetPosition = transform.position + Vector3.up * OpenHeight;
+        // ќстанавливаем любое текущее движение (например, открытие)
+        if (currentDoorRoutine != null) StopCoroutine(currentDoorRoutine);
 
-        
-        while (Vector3.Distance(transform.position, targetPosition) > 0.01f)
+        // «апускаем движение к initialPosition из текущего положени€
+        currentDoorRoutine = StartCoroutine(MoveDoorRoutine(initialPosition, "закрыта"));
+    }
+
+    // ”ниверсальна€ корутина дл€ движени€ в любую сторону
+    private IEnumerator MoveDoorRoutine(Vector3 destination, string debugState)
+    {
+        while (Vector3.Distance(transform.position, destination) > 0.01f)
         {
-            transform.position = Vector3.MoveTowards(transform.position, targetPosition, Speed * Time.deltaTime);
-            yield return null; 
+            transform.position = Vector3.MoveTowards(transform.position, destination, Speed * Time.deltaTime);
+            yield return null;
         }
 
-        transform.position = targetPosition; 
-        Debug.Log("ƒверь открыта, корутина завершена.");
+        transform.position = destination;
+        Debug.Log($"ƒверь {debugState}, корутина завершена.");
     }
 }

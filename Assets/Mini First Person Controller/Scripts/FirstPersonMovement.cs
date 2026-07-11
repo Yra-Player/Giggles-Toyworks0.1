@@ -11,33 +11,40 @@ public class FirstPersonMovement : MonoBehaviour
     public KeyCode runningKey = KeyCode.LeftShift;
 
     [Header("Ladder Settings")]
-    public float climbSpeed = 4f; // Скорость подъема по лестнице
+    public float climbSpeed = 4f;
 
     public bool IsRunning { get; private set; }
 
-    /// <summary> Functions to override movement speed. Will use the last added override. </summary>
     public List<System.Func<float>> speedOverrides = new List<System.Func<float>>();
 
     private Rigidbody rb;
     private Vector2 inputVector;
     private bool runInput;
-    public bool IsClimbing = false; // Находится ли игрок на лестнице
+    public bool IsClimbing = false;
 
-    // Ссылка на компонент проверки земли, чтобы знать, когда мы летим
     private GroundCheck playerGroundCheck;
 
     void Awake()
     {
         rb = GetComponent<Rigidbody>();
-        rb.freezeRotation = true; // Защита от случайного падения персонажа на бок
+        rb.freezeRotation = true;
 
-        // Находим GroundCheck в дочерних объектах игрока (так же, как это делает ваш скрипт Jump)
         playerGroundCheck = GetComponentInChildren<GroundCheck>();
+
+        // Обновлено под новую версию Unity: используем PhysicsMaterial вместо PhysicMaterial
+        CapsuleCollider playerCollider = GetComponent<CapsuleCollider>();
+        if (playerCollider != null)
+        {
+            PhysicsMaterial noFrictionMat = new PhysicsMaterial("NoFriction");
+            noFrictionMat.staticFriction = 0f;
+            noFrictionMat.dynamicFriction = 0f;
+            noFrictionMat.frictionCombine = PhysicsMaterialCombine.Minimum;
+            playerCollider.material = noFrictionMat;
+        }
     }
 
     void Update()
     {
-        // Опрашиваем кнопки строго в Update (работает без пропусков)
         inputVector.x = Input.GetAxisRaw("Horizontal");
         inputVector.y = Input.GetAxisRaw("Vertical");
         runInput = Input.GetKey(runningKey);
@@ -47,25 +54,35 @@ public class FirstPersonMovement : MonoBehaviour
     {
         if (IsClimbing)
         {
-            // --- ЛОГИКА КАРАБКАНИЯ ПО ЛЕСТНИЦЕ ---
             rb.useGravity = false;
-
+            rb.constraints = RigidbodyConstraints.FreezeRotation; // Возвращаем обычные ограничения
             Vector3 climbVelocity = new Vector3(0, inputVector.y * climbSpeed, 0);
             Vector3 horizontalMove = transform.rotation * new Vector3(inputVector.x, 0, 0).normalized * speed;
-
             rb.linearVelocity = climbVelocity + horizontalMove;
         }
         else
         {
-            // --- ОБЫЧНОЕ ДВИЖЕНИЕ И ПАДЕНИЕ ---
             rb.useGravity = true;
 
-            // Если датчик земли существует и сообщает, что мы НЕ на земле (летим/падаем)
+            // Если летим/падаем — управление отключается
             if (playerGroundCheck != null && !playerGroundCheck.isGrounded)
             {
-                // Полностью блокируем WASD-управление. Rigidbody летит чисто по физической инерции падения.
+                rb.constraints = RigidbodyConstraints.FreezeRotation;
                 return;
             }
+
+            // ЖЕСТКАЯ БЛОКИРОВКА НА РАМПЕ / ЛЕСТНИЦЕ
+            // Если игрок на земле и НЕ нажимает WASD
+            if (inputVector.sqrMagnitude < 0.01f)
+            {
+                rb.linearVelocity = Vector3.zero;
+                // Замораживаем позицию по X, Y, Z, чтобы физика и гравитация не могли сдвинуть игрока
+                rb.constraints = RigidbodyConstraints.FreezePosition | RigidbodyConstraints.FreezeRotation;
+                return;
+            }
+
+            // Если игрок идет, возвращаем стандартное состояние (заморожено только вращение)
+            rb.constraints = RigidbodyConstraints.FreezeRotation;
 
             IsRunning = canRun && runInput;
 
@@ -75,18 +92,14 @@ public class FirstPersonMovement : MonoBehaviour
                 targetMovingSpeed = speedOverrides[speedOverrides.Count - 1]();
             }
 
-            // Нормализуем вектор, чтобы скорость по диагонали не удваивалась
             Vector3 moveDirection = new Vector3(inputVector.x, 0, inputVector.y).normalized;
             Vector3 targetVelocity = transform.rotation * moveDirection * targetMovingSpeed;
 
-            // Удерживаем текущую скорость прыжка/падения
             targetVelocity.y = rb.linearVelocity.y;
-
             rb.linearVelocity = targetVelocity;
         }
     }
 
-    // --- ОТСЛЕЖИВАНИЕ ЗОНЫ ЛЕСТНИЦЫ ---
     private void OnTriggerEnter(Collider other)
     {
         if (other.CompareTag("Ladder"))

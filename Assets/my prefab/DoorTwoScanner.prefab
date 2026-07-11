@@ -49,7 +49,7 @@ PrefabInstance:
     - target: {fileID: 6070752849685726889, guid: eddf5b09f7ce6894bb3a95a08a45864c, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
-      objectReference: {fileID: 2100000, guid: 4b6748a85738f674dab4cf864eb59a4d, type: 2}
+      objectReference: {fileID: 2100000, guid: baf22075380f9ae4e9cef495805cf7e3, type: 2}
     - target: {fileID: 6070752849685726891, guid: eddf5b09f7ce6894bb3a95a08a45864c, type: 3}
       propertyPath: m_Name
       value: scaner (1)
@@ -228,7 +228,7 @@ PrefabInstance:
     - target: {fileID: 6512099285100495904, guid: ae7b8e763c6ce72418f1477be4f2e105, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
-      objectReference: {fileID: 2100000, guid: baf22075380f9ae4e9cef495805cf7e3, type: 2}
+      objectReference: {fileID: 2100000, guid: 4b6748a85738f674dab4cf864eb59a4d, type: 2}
     - target: {fileID: 6512099285100495906, guid: ae7b8e763c6ce72418f1477be4f2e105, type: 3}
       propertyPath: m_Name
       value: scanerForRightArm

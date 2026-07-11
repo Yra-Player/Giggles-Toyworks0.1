@@ -1,65 +1,55 @@
 using UnityEngine;
 using UnityEngine.SceneManagement;
-using UnityEngine.UI; // Обязательно добавляем для работы с кнопками
+using UnityEngine.UI;
 
 public class MainMenu : MonoBehaviour
 {
-    [Header("Настройки сцены")]
-    public string gameSceneName = "FactoryScene"; // Впишите сюда ТОЧНОЕ название игровой сцены
-
-    [Header("Ссылки на UI кнопки")]
-    public Button continueButton; // Перетащите сюда вашу кнопку "Продолжить" из иерархии
+    public string gameSceneName = "FactoryScene";
+    public Button continueButton;
+    [SerializeField] private GameObject buttonPanel;
+    [SerializeField] private GameObject settingsPanel;
+    [SerializeField] private GameObject gameTitle;
 
     void Start()
     {
-        // Проверяем, запускал ли игрок игру раньше и доходил ли до чекпоинта
+        if (buttonPanel != null) buttonPanel.SetActive(true);
+        if (gameTitle != null) gameTitle.SetActive(true);
+        if (settingsPanel != null) settingsPanel.SetActive(false);
+
+        // Проверяем наличие сохранений для активации кнопки "ПРОДОЛЖИТЬ"
         if (PlayerPrefs.HasKey("CheckpointX"))
-        {
-            // Если сохранение есть, кнопка "Продолжить" работает
-            if (continueButton != null) continueButton.interactable = true;
-        }
+        { if (continueButton != null) continueButton.interactable = true; }
         else
-        {
-            // Если сохранений нет, кнопку "Продолжить" нельзя нажать (она станет серой)
-            if (continueButton != null) continueButton.interactable = false;
-        }
+        { if (continueButton != null) continueButton.interactable = false; }
     }
 
-    // Этот метод вешаем на кнопку "НОВАЯ ИГРА"
     public void NewGame()
     {
-        // Полностью стираем старые координаты чекпоинтов
+        // Очищаем старый прогресс и протезы рук
         PlayerPrefs.DeleteKey("CheckpointX");
         PlayerPrefs.DeleteKey("CheckpointY");
         PlayerPrefs.DeleteKey("CheckpointZ");
-
-        // ЖЕСТКО сбрасываем обе руки в состояние "не подобрано" (0)
         PlayerPrefs.SetInt("HasLeftHand", 0);
         PlayerPrefs.SetInt("HasRightHand", 0);
-
-        // Принудительно сохраняем изменения в памяти
         PlayerPrefs.Save();
-
-        // Запускаем игру с самого начала
         SceneManager.LoadScene(gameSceneName);
     }
 
-    // Этот метод вешаем на кнопку "ПРОДОЛЖИТЬ"
-    public void ContinueGame()
-    {
-        // Просто запускаем игровую сцену. 
-        // Когда она откроется, CheckpointManager включится, увидит координаты в памяти и сам перенесет игрока!
-        SceneManager.LoadScene(gameSceneName);
-    }
+    public void ContinueGame() => SceneManager.LoadScene(gameSceneName);
 
     public void OpenSettings()
     {
-        Debug.Log("Открыты настройки");
+        if (buttonPanel != null) buttonPanel.SetActive(false);
+        if (gameTitle != null) gameTitle.SetActive(false);
+        if (settingsPanel != null) settingsPanel.SetActive(true);
     }
 
-    public void ExitGame()
+    public void CloseSettings()
     {
-        Debug.Log("Выход из игры");
-        Application.Quit();
+        if (settingsPanel != null) settingsPanel.SetActive(false);
+        if (buttonPanel != null) buttonPanel.SetActive(true);
+        if (gameTitle != null) gameTitle.SetActive(true);
     }
+
+    public void ExitGame() => Application.Quit();
 }
