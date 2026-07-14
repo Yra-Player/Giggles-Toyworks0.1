@@ -4,7 +4,7 @@ using UnityEngine.UI;
 
 public class MainMenu : MonoBehaviour
 {
-    public string gameSceneName = "FactoryScene";
+    public string gameSceneName = "MainGame";
     public Button continueButton;
     [SerializeField] private GameObject buttonPanel;
     [SerializeField] private GameObject settingsPanel;
