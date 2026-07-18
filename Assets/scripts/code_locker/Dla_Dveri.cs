@@ -1,25 +1,34 @@
-using UnityEngine;
-using System.Collections; // Обязательно для корутин
+п»їusing UnityEngine;
+using System.Collections;
 
 public class Dla_Dveri : MonoBehaviour
 {
-    public Vector3 openOffset = new Vector3(-2f, 0, 0); // Куда едем
-    public float speed = 2f; // Скорость
+    public Vector3 openOffset = new Vector3(-2f, 0, 0); // РљСѓРґР° РµРґРµРј
+    public float speed = 2f; // РЎРєРѕСЂРѕСЃС‚СЊ
 
+    private Vector3 _startPosition; // Р—Р°РїРѕРјРёРЅР°РµРј Р±Р°Р·РѕРІСѓСЋ Р·Р°РєСЂС‹С‚СѓСЋ С‚РѕС‡РєСѓ
     private Vector3 _targetPosition;
-    private bool _isOpening = false; // Флаг, чтобы не запускать корутину дважды
+    private bool _isOpening = false;
+    private bool _isClosedAtStart = true;
 
-    void Start()
+    void Awake()
     {
-        // Считаем финальную точку один раз при старте
-        _targetPosition = transform.localPosition + openOffset;
+        // рџ’Ў Р’РђР–РќРћ: Р—Р°РїРѕРјРёРЅР°РµРј СЃС‚Р°СЂС‚РѕРІСѓСЋ РїРѕР·РёС†РёСЋ РІ Awake РґРѕ С‚РѕРіРѕ, РєР°Рє СЃСЂР°Р±РѕС‚Р°СЋС‚ РїСЂРѕРІРµСЂРєРё РІ Start!
+        _startPosition = transform.localPosition;
+        _targetPosition = _startPosition + openOffset;
     }
 
-    // Метод, который вызывается из CodeLock
+    // РњРµС‚РѕРґ РґР»СЏ РњР“РќРћР’Р•РќРќРћР“Рћ РѕС‚РєСЂС‹С‚РёСЏ РїСЂРё Р·Р°РіСЂСѓР·РєРµ СЃРѕС…СЂР°РЅРµРЅРёСЏ
+    public void InstantOpen()
+    {
+        _isClosedAtStart = false; // РџРѕРјРµС‡Р°РµРј, С‡С‚Рѕ РЅР° СЃС‚Р°СЂС‚Рµ РїР»Р°РІРЅРѕ РµС…Р°С‚СЊ РЅРµ РЅСѓР¶РЅРѕ
+        transform.localPosition = _startPosition + openOffset;
+        Debug.Log($"<color=cyan>[Р”Р’Р•Р Р¬] {gameObject.name} РјРіРЅРѕРІРµРЅРЅРѕ РѕС‚РєСЂС‹С‚Р° РёР· СЃРѕС…СЂР°РЅРµРЅРёСЏ.</color>");
+    }
+
     public void OpenDoor()
     {
-        // Если дверь уже в процессе открытия, ничего не делаем
-        if (!_isOpening)
+        if (!_isOpening && _isClosedAtStart)
         {
             StartCoroutine(MoveDoorRoutine());
         }
@@ -29,24 +38,19 @@ public class Dla_Dveri : MonoBehaviour
     {
         _isOpening = true;
 
-        // Пока мы не достигли цели (с очень маленькой погрешностью)
         while (Vector3.Distance(transform.localPosition, _targetPosition) > 0.01f)
         {
-            // Двигаем дверь
             transform.localPosition = Vector3.MoveTowards(
                 transform.localPosition,
                 _targetPosition,
                 speed * Time.deltaTime
             );
-
-            // Ждем следующего кадра
             yield return null;
         }
 
-        // Принудительно ставим в финальную точку в конце
         transform.localPosition = _targetPosition;
         _isOpening = false;
 
-        Debug.Log("Дверь полностью открыта, корутина завершена.");
+        Debug.Log("Р”РІРµСЂСЊ РїРѕР»РЅРѕСЃС‚СЊСЋ РѕС‚РєСЂС‹С‚Р°, РєРѕСЂСѓС‚РёРЅР° Р·Р°РІРµСЂС€РµРЅР°.");
     }
 }

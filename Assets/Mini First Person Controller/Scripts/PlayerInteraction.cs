@@ -19,9 +19,6 @@ public class PlayerInteraction : MonoBehaviour
 
     void Start()
     {
-        // ИЗМЕНЕНИЕ 1: Теперь при старте мы НЕ выключаем руку вслепую.
-        // Мы проверяем: если в памяти ЕСТЬ сохранение правой руки, мы оставляем её ВКЛЮЧЕННОЙ.
-        // Если сейва нет (новая игра) — тогда выключаем.
         if (PlayerPrefs.GetInt("HasRightHand", 0) == 1)
         {
             if (rightArmShoulder != null) rightArmShoulder.SetActive(true);
@@ -49,6 +46,8 @@ public class PlayerInteraction : MonoBehaviour
             LockButton button = null;
             ButtonSequence soundButton = null;
             DoorControl door = null;
+            LeftLever lever = null;
+            TapeRecorder recorder = null; // ДОБАВЛЕНО: переменная для магнитофона
             bool isPickableKey = false;
             bool isRightHandItem = false;
 
@@ -57,6 +56,8 @@ public class PlayerInteraction : MonoBehaviour
                 button = hit.collider.GetComponent<LockButton>();
                 soundButton = hit.collider.GetComponent<ButtonSequence>();
                 door = hit.collider.GetComponent<DoorControl>();
+                lever = hit.collider.GetComponent<LeftLever>();
+                recorder = hit.collider.GetComponent<TapeRecorder>(); // ДОБАВЛЕНО: считываем магнитофон при наведении
 
                 if (hit.collider.CompareTag("KeyStaffOnly") || hit.collider.CompareTag("KeyForMiniMarket"))
                 {
@@ -69,7 +70,8 @@ public class PlayerInteraction : MonoBehaviour
                 }
             }
 
-            if (button != null || soundButton != null || door != null || isPickableKey || isRightHandItem)
+            // ИЗМЕНЕНИЕ: прицел теперь краснеет и при наведении на магнитофон (recorder != null)
+            if (button != null || soundButton != null || door != null || lever != null || recorder != null || isPickableKey || isRightHandItem)
             {
                 if (cursorDot != null) cursorDot.color = interactColor;
 
@@ -82,7 +84,6 @@ public class PlayerInteraction : MonoBehaviour
                         if (rightArmShoulder != null) rightArmShoulder.SetActive(true);
                         if (rightHandModel != null) rightHandModel.SetActive(true);
 
-                        // ИЗМЕНЕНИЕ 2: Записываем в память, что правая рука подобрана успешно!
                         PlayerPrefs.SetInt("HasRightHand", 1);
                         PlayerPrefs.Save();
 
@@ -104,6 +105,14 @@ public class PlayerInteraction : MonoBehaviour
                     else if (soundButton != null)
                     {
                         soundButton.OnButtonPress();
+                    }
+                    else if (lever != null)
+                    {
+                        lever.PullLever();
+                    }
+                    else if (recorder != null) // ДОБАВЛЕНО: логика интеракта с магнитофоном на кнопку 'E'
+                    {
+                        recorder.InsertTape();
                     }
                 }
             }

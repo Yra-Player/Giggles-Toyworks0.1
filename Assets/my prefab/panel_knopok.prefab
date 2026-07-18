@@ -1339,6 +1339,7 @@ MonoBehaviour:
           m_StringArgument: 
           m_BoolArgument: 0
         m_CallState: 2
+  lockUniqueID: Room_GripClaws_Lock
 --- !u!1 &8891256764751277813
 GameObject:
   m_ObjectHideFlags: 0

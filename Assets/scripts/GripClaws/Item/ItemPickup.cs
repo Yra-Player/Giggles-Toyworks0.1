@@ -1,47 +1,65 @@
-using UnityEngine;
+п»їusing UnityEngine;
 
 public class ItemPickup : MonoBehaviour
 {
     public enum PickupType { LeftHandWithGrappack, RightHandOnly }
 
-    [Header("Настройки предмета")]
+    [Header("РќР°СЃС‚СЂРѕР№РєРё РїСЂРµРґРјРµС‚Р°")]
     public PickupType itemType;
 
-    [Tooltip("Имя корневого объекта Греппака на игроке (BuilversionGripClaws)")]
+    [Tooltip("РРјСЏ РєРѕСЂРЅРµРІРѕРіРѕ РѕР±СЉРµРєС‚Р° Р“СЂРµРїРїР°РєР° РЅР° РёРіСЂРѕРєРµ (BuilversionGripClaws)")]
     public string rootObjectName = "BuilversionGripClaws";
 
-    [Tooltip("Имя конкретной руки в иерархии персонажа, которую нужно включить")]
-    public string handObjectName = "ИМЯ_РУКИ_В_ИЕРАРХИИ";
+    [Tooltip("РРјСЏ РєРѕРЅРєСЂРµС‚РЅРѕР№ СЂСѓРєРё РІ РёРµСЂР°СЂС…РёРё РїРµСЂСЃРѕРЅР°Р¶Р°, РєРѕС‚РѕСЂСѓСЋ РЅСѓР¶РЅРѕ РІРєР»СЋС‡РёС‚СЊ")]
+    public string handObjectName = "РРњРЇ_Р РЈРљР_Р’_РР•Р РђР РҐРР";
 
     public KeyCode pickupKey = KeyCode.E;
+
+    [Header("Р—Р°С‰РёС‚Р° РїР°Р·Р»Р°")]
+    [Tooltip("РџРµСЂРµС‚Р°С‰Рё СЃСЋРґР° СЂС‹С‡Р°Рі. РРіСЂРѕРє РЅРµ СЃРјРѕР¶РµС‚ РІР·СЏС‚СЊ РїСЂРµРґРјРµС‚, РїРѕРєР° СЂС‹С‡Р°Рі РЅРµ РѕРїСѓСЃС‚РёС‚ РµРіРѕ!")]
+    public LeftLever requiredLever;
 
     private GameObject _rootObject;
     private GameObject _handObject;
     private bool _canPickUp = false;
 
-
-
-    
-    
-
     private void OnTriggerEnter(Collider other)
     {
         if (other.CompareTag("Player"))
         {
-            // Находим корень Греппака
+            // рџ’Ў РџР РћР’Р•Р РљРђ 1: РџСЂРѕРІРµСЂСЏРµРј, РЅРµС‚ Р»Рё Сѓ РёРіСЂРѕРєР° СѓР¶Рµ СЌС‚РѕР№ СЂСѓРєРё РІ РїР°РјСЏС‚Рё
+            if (itemType == PickupType.RightHandOnly && PlayerPrefs.GetInt("HasRightHand", 0) == 1)
+            {
+                Debug.Log("[Pickup] РРіСЂРѕРє СѓР¶Рµ РёРјРµРµС‚ РџСЂР°РІСѓСЋ СЂСѓРєСѓ, РїРѕРґР±РѕСЂ Р·Р°Р±Р»РѕРєРёСЂРѕРІР°РЅ.");
+                return;
+            }
+            if (itemType == PickupType.LeftHandWithGrappack && PlayerPrefs.GetInt("HasLeftHand", 0) == 1)
+            {
+                Debug.Log("[Pickup] РРіСЂРѕРє СѓР¶Рµ РёРјРµРµС‚ Р›РµРІСѓСЋ СЂСѓРєСѓ, РїРѕРґР±РѕСЂ Р·Р°Р±Р»РѕРєРёСЂРѕРІР°РЅ.");
+                return;
+            }
+
+            // рџ’Ў РџР РћР’Р•Р РљРђ 2: Р—Р°С‰РёС‚Р° РѕС‚ С…РёС‚СЂРµС†РѕРІ. Р•СЃР»Рё СЂС‹С‡Р°Рі РїСЂРёРІСЏР·Р°РЅ, РЅРѕ Р•Р©Р• РќР• Р°РєС‚РёРІРёСЂРѕРІР°РЅ вЂ” Р±СЂР°С‚СЊ РЅРµР»СЊР·СЏ!
+            if (requiredLever != null && !requiredLever.IsActivated())
+            {
+                Debug.Log("[Pickup] РџСЂРµРґРјРµС‚ СЃР»РёС€РєРѕРј РІС‹СЃРѕРєРѕ! РЎРЅР°С‡Р°Р»Р° РѕРїСѓСЃС‚Рё СЂС‹С‡Р°Рі.");
+                return;
+            }
+
+            // РќР°С…РѕРґРёРј РєРѕСЂРµРЅСЊ Р“СЂРµРїРїР°РєР°
             if (_rootObject == null)
             {
                 _rootObject = FindChildRecursive(other.transform, rootObjectName);
             }
 
-            // Находим конкретную руку (левую или правую)
+            // РќР°С…РѕРґРёРј РєРѕРЅРєСЂРµС‚РЅСѓСЋ СЂСѓРєСѓ (Р»РµРІСѓСЋ РёР»Рё РїСЂР°РІСѓСЋ)
             if (_handObject == null)
             {
                 _handObject = FindChildRecursive(other.transform, handObjectName);
             }
 
             _canPickUp = true;
-            Debug.Log($"Нажми [{pickupKey}], чтобы подобрать предмет: {itemType}");
+            Debug.Log($"РќР°Р¶РјРё [{pickupKey}], С‡С‚РѕР±С‹ РїРѕРґРѕР±СЂР°С‚СЊ РїСЂРµРґРјРµС‚: {itemType}");
         }
     }
 
@@ -63,38 +81,28 @@ public class ItemPickup : MonoBehaviour
 
     private void PickUp()
     {
-        // Проверяем, нашли ли мы корневой Греппак
-        if (_rootObject == null)
+        if (_rootObject == null || _handObject == null)
         {
-            Debug.LogError($"[Pickup] Ошибка: Не найден корневой объект '{rootObjectName}' на игроке!");
+            Debug.LogError($"[Pickup] РћС€РёР±РєР°: РќРµ РЅР°Р№РґРµРЅС‹ РѕР±СЉРµРєС‚С‹ РЅР° РёРіСЂРѕРєРµ!");
             return;
         }
 
-        // Проверяем, нашли ли мы саму клешню
-        if (_handObject == null)
-        {
-            Debug.LogError($"[Pickup] Ошибка: Внутри игрока не найден объект руки с именем '{handObjectName}'!");
-            return;
-        }
-
-        // Активируем корень (актуально для первой подборки) и саму руку
         _rootObject.SetActive(true);
         _handObject.SetActive(true);
 
-        // Записываем сохранение в зависимости от типа
         if (itemType == PickupType.LeftHandWithGrappack)
         {
             PlayerPrefs.SetInt("HasLeftHand", 1);
-            Debug.Log("[Pickup] Успешно подобраны Греппак и Левая рука!");
+            Debug.Log("[Pickup] РЈСЃРїРµС€РЅРѕ РїРѕРґРѕР±СЂР°РЅС‹ Р“СЂРµРїРїР°Рє Рё Р›РµРІР°СЏ СЂСѓРєР°!");
         }
         else if (itemType == PickupType.RightHandOnly)
         {
             PlayerPrefs.SetInt("HasRightHand", 1);
-            Debug.Log("[Pickup] Успешно подобрана Правая рука!");
+            Debug.Log("[Pickup] РЈСЃРїРµС€РЅРѕ РїРѕРґРѕР±СЂР°РЅР° РџСЂР°РІР°СЏ СЂСѓРєР°!");
         }
 
         PlayerPrefs.Save();
-        Destroy(gameObject); // Уничтожаем предмет на полу
+        Destroy(gameObject); // РЈРЅРёС‡С‚РѕР¶Р°РµРј РїСЂРµРґРјРµС‚ РЅР° РєСЂСЋРєРµ
     }
 
     private GameObject FindChildRecursive(Transform parent, string name)

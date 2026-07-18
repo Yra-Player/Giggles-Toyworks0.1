@@ -90,7 +90,7 @@ public class DoorControl : MonoBehaviour
         while (elapsed < 0.2f)
         {
             float z = Mathf.Sin(Time.time * 50f) * 2f;
-            transform.localRotation = closedRot * Quaternion.Euler(0, 0, z);
+            transform.localRotation = closedRot * Quaternion.Euler(0, z, 0);
             elapsed += Time.deltaTime;
             yield return null;
         }
