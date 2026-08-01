@@ -26,6 +26,9 @@ public class ScannerPower : MonoBehaviour
     private Coroutine _scanCoroutine;
     private bool _isPermanentlyPowered = false;
 
+
+    public RoomLightingController lightingController;
+
     // --- ПУБЛИЧНЫЕ МЕТОДЫ (Взаимодействие) ---
 
     // Этот метод вызывает PowerBox через корутину
@@ -51,6 +54,10 @@ public class ScannerPower : MonoBehaviour
             progressImage.fillAmount = 0;
             progressImage.gameObject.SetActive(false);
         }
+
+        //Возврат света
+        if (lightingController != null) lightingController.TriggerPowerRestore();
+
         Debug.Log("Система перезагружена, сканер готов!");
     }
 
@@ -127,6 +134,9 @@ public class ScannerPower : MonoBehaviour
         _isBroken = true;
         if (scannerModelRenderer != null) scannerModelRenderer.material.color = scannerBrokenColor;
         if (progressImage != null) progressImage.color = Color.red;
+
+        //ВЫзов тушёнки света
+        if (lightingController != null) lightingController.TriggerPowerOutage();
 
         Debug.Log("⚠️ КРИТИЧЕСКАЯ ОШИБКА: Питание прервано на " + timeUntilFailure + " сек.");
         _scanCoroutine = null;
