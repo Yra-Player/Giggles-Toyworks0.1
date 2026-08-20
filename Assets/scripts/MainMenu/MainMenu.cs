@@ -1,41 +1,46 @@
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
-using UnityEngine.Video; // Обязательно для работы с видеоплеером
+using UnityEngine.Video;
+using System.Collections;
+using TMPro; // ОБЯЗАТЕЛЬНО: Добавляем библиотеку для работы с TextMeshPro
 
 public class MainMenu : MonoBehaviour
 {
     [Header("Настройки сцен")]
-    public string gameSceneName = "MainGame"; // Имя вашей главной сцены с игрой
-    public Button continueButton;             // Ссылка на кнопку "ПРОДОЛЖИТЬ"
+    public string gameSceneName = "MainGame";
+    public Button continueButton;
 
     [Header("Панели интерфейса")]
-    [SerializeField] private GameObject buttonPanel;   // Панель с главными кнопками
-    [SerializeField] private GameObject settingsPanel; // Панель настроек
-    [SerializeField] private GameObject gameTitle;     // Объект с названием игры (Giggles ToyWorks)
+    [SerializeField] private GameObject buttonPanel;
+    [SerializeField] private GameObject settingsPanel;
+    [SerializeField] private GameObject gameTitle;
+
+    [Header("Динамический список чекпоинтов")]
+    [SerializeField] private GameObject checkpointPanel;
+    [SerializeField] private GameObject slotsContainer;
+    [SerializeField] private GameObject slotPrefab;
+
+    [Header("Картинки локаций (По порядку их открытия в игре)")]
+    [SerializeField] private Sprite[] locationSprites;
 
     [Header("Настройки Интро (MP4)")]
-    [SerializeField] private GameObject videoScreen;   // Объект Raw Image, где будет играть видео
-    [SerializeField] private VideoPlayer videoPlayer;   // Компонент Video Player
-    [SerializeField] private Button skipVideoButton;   // Кнопка "Пропустить" (если захотите её сделать)
+    [SerializeField] private GameObject videoScreen;
+    [SerializeField] private VideoPlayer videoPlayer;
+    [SerializeField] private Button skipVideoButton;
 
     void Start()
     {
-        // При старте включаем меню и выключаем всё лишнее
         if (buttonPanel != null) buttonPanel.SetActive(true);
         if (gameTitle != null) gameTitle.SetActive(true);
         if (settingsPanel != null) settingsPanel.SetActive(false);
+        if (checkpointPanel != null) checkpointPanel.SetActive(false);
         if (videoScreen != null) videoScreen.SetActive(false);
         if (skipVideoButton != null) skipVideoButton.gameObject.SetActive(false);
 
-        // Подписываемся на событие автоматического окончания видеоролика
-        if (videoPlayer != null)
-        {
-            videoPlayer.loopPointReached += OnVideoFinished;
-        }
+        if (videoPlayer != null) videoPlayer.loopPointReached += OnVideoFinished;
 
-        // Проверяем наличие сохранений для активации кнопки "ПРОДОЛЖИТЬ"
-        if (PlayerPrefs.HasKey("CheckpointX"))
+        if (PlayerPrefs.GetInt("HasAnySave", 0) == 1)
         {
             if (continueButton != null) continueButton.interactable = true;
         }
@@ -45,80 +50,125 @@ public class MainMenu : MonoBehaviour
         }
     }
 
-    // Этот метод должен быть привязан к кнопке "НОВАЯ ИГРА"
     public void NewGame()
     {
-        // Очищаем старый прогресс и протезы рук (ваш оригинальный код)
-        PlayerPrefs.DeleteKey("CheckpointX");
-        PlayerPrefs.DeleteKey("CheckpointY");
-        PlayerPrefs.DeleteKey("CheckpointZ");
-        PlayerPrefs.SetInt("HasLeftHand", 0);
-        PlayerPrefs.SetInt("HasRightHand", 0);
+        int totalSlots = PlayerPrefs.GetInt("MaxSavedSlotsCount", 20);
+        for (int i = 1; i <= totalSlots; i++)
+        {
+            string p = "Slot_" + i + "_";
+            PlayerPrefs.DeleteKey(p + "CheckpointX");
+            PlayerPrefs.DeleteKey(p + "CheckpointY");
+            PlayerPrefs.DeleteKey(p + "CheckpointZ");
+            PlayerPrefs.DeleteKey(p + "LocationName");
+            PlayerPrefs.DeleteKey(p + "SaveDate");
+            PlayerPrefs.DeleteKey(p + "PlayTime");
+            PlayerPrefs.DeleteKey(p + "Exists");
+        }
+
+        PlayerPrefs.DeleteKey("HasAnySave");
+        PlayerPrefs.DeleteKey("LastSelectedSlot");
+        PlayerPrefs.DeleteKey("SelectedSlotToLoad");
+        PlayerPrefs.DeleteKey("MaxSavedSlotsCount");
         PlayerPrefs.Save();
 
-        // Проверяем, настроен ли видеоплеер в инспекторе
         if (videoPlayer != null && videoScreen != null)
         {
-            // Скрываем интерфейс меню, чтобы он не накладывался на видео
             if (buttonPanel != null) buttonPanel.SetActive(false);
             if (gameTitle != null) gameTitle.SetActive(false);
-
-            // Включаем экран с видео и кнопку пропуска
             videoScreen.SetActive(true);
             if (skipVideoButton != null) skipVideoButton.gameObject.SetActive(true);
-
-            // Запускаем воспроизведение MP4
             videoPlayer.Play();
         }
         else
         {
-            // Если видео забыли добавить, просто сразу переходим к загрузке
             StartGameLoading();
         }
     }
 
-    // Этот метод должен быть привязан к кнопке "ПРОДОЛЖИТЬ"
     public void ContinueGame()
-    {
-        // При продолжении интро не нужно, сразу включаем экран загрузки
-        StartGameLoading();
-    }
-
-    // Метод сработает автоматически, когда MP4 ролик досмотрится до самого конца
-    private void OnVideoFinished(VideoPlayer vp)
-    {
-        StartGameLoading();
-    }
-
-    // Этот метод можно привязать к кнопке "Пропустить" поверх видео
-    public void SkipVideo()
-    {
-        if (videoPlayer != null && videoPlayer.isPlaying)
-        {
-            videoPlayer.Stop();
-            StartGameLoading();
-        }
-    }
-
-    // Переход на экран загрузки через наш невидимый класс-мост
-    private void StartGameLoading()
-    {
-        SceneLoader.Load(gameSceneName);
-    }
-
-    public void OpenSettings()
     {
         if (buttonPanel != null) buttonPanel.SetActive(false);
         if (gameTitle != null) gameTitle.SetActive(false);
-        if (settingsPanel != null) settingsPanel.SetActive(true);
+        if (checkpointPanel != null) checkpointPanel.SetActive(true);
+
+        BuildCheckpointList();
     }
 
-    public void CloseSettings()
+    private void BuildCheckpointList()
     {
-        if (settingsPanel != null) settingsPanel.SetActive(false);
+        foreach (Transform child in slotsContainer.transform)
+        {
+            Destroy(child.gameObject);
+        }
+
+        int lastSlot = PlayerPrefs.GetInt("LastSelectedSlot", 0);
+        if (lastSlot == 0) return;
+
+        if (lastSlot > PlayerPrefs.GetInt("MaxSavedSlotsCount", 0))
+        {
+            PlayerPrefs.SetInt("MaxSavedSlotsCount", lastSlot);
+            PlayerPrefs.Save();
+        }
+
+        for (int i = lastSlot; i >= 1; i--)
+        {
+            string prefix = "Slot_" + i + "_";
+
+            if (PlayerPrefs.GetInt(prefix + "Exists", 0) == 1)
+            {
+                GameObject newSlot = Instantiate(slotPrefab, slotsContainer.transform);
+
+                // ИСПРАВЛЕНО: Теперь скрипт ищет компоненты по их точному типу и иерархии
+                Image slotImage = newSlot.transform.Find("Image").GetComponent<Image>();
+                TMP_Text slotText = newSlot.transform.Find("InfoText").GetComponent<TMP_Text>();
+
+                string locName = PlayerPrefs.GetString(prefix + "LocationName", "Локация");
+                string saveDate = PlayerPrefs.GetString(prefix + "SaveDate", "--.--.--");
+                float playTimeSeconds = PlayerPrefs.GetFloat(prefix + "PlayTime", 0f);
+
+                System.TimeSpan t = System.TimeSpan.FromSeconds(playTimeSeconds);
+                string formattedTime = string.Format("{0:D2}:{1:D2}:{2:D2}", t.Hours, t.Minutes, t.Seconds);
+
+                if (slotText != null)
+                {
+                    slotText.text = $"ЛОКАЦИЯ: {locName}\nДАТА: {saveDate}\nВРЕМЯ: {formattedTime}";
+                }
+
+                if (slotImage != null && locationSprites != null && (i - 1) < locationSprites.Length)
+                {
+                    slotImage.sprite = locationSprites[i - 1];
+                }
+
+                int indexForButton = i;
+                Button btn = newSlot.GetComponent<Button>();
+                if (btn != null)
+                {
+                    btn.onClick.AddListener(() => LoadSlotAndStart(indexForButton));
+                }
+            }
+        }
+    }
+
+    private void LoadSlotAndStart(int slotIndex)
+    {
+        PlayerPrefs.SetInt("SelectedSlotToLoad", slotIndex);
+        PlayerPrefs.Save();
+        StartGameLoading();
+    }
+
+    public void CloseCheckpointPanel()
+    {
+        if (checkpointPanel != null) checkpointPanel.SetActive(false);
         if (buttonPanel != null) buttonPanel.SetActive(true);
         if (gameTitle != null) gameTitle.SetActive(true);
     }
 
+    private void CheckTitle() { if (gameTitle != null) gameTitle.SetActive(true); }
+
+    private void OnVideoFinished(VideoPlayer vp) => StartGameLoading();
+    public void SkipVideo() { if (videoPlayer != null && videoPlayer.isPlaying) { videoPlayer.Stop(); StartGameLoading(); } }
+    private void StartGameLoading() => SceneLoader.Load(gameSceneName);
+    public void OpenSettings() { buttonPanel.SetActive(false); gameTitle.SetActive(false); settingsPanel.SetActive(true); }
+    public void CloseSettings() { settingsPanel.SetActive(false); buttonPanel.SetActive(true); gameTitle.SetActive(true); }
     public void ExitGame() => Application.Quit();
 }

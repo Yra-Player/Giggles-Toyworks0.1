@@ -22,6 +22,10 @@ public class FirstPersonMovement : MonoBehaviour
     private bool runInput;
     public bool IsClimbing = false;
 
+    // --- НОВАЯ ПЕРЕМЕННАЯ ДЛЯ КОНВЕЙЕРА ---
+    [HideInInspector] // Прячем из инспектора, чтобы не мусорить, управлять ей будем через код
+    public bool isOnConveyor = false;
+
     private GroundCheck playerGroundCheck;
 
     void Awake()
@@ -31,7 +35,6 @@ public class FirstPersonMovement : MonoBehaviour
 
         playerGroundCheck = GetComponentInChildren<GroundCheck>();
 
-        // Обновлено под новую версию Unity: используем PhysicsMaterial вместо PhysicMaterial
         CapsuleCollider playerCollider = GetComponent<CapsuleCollider>();
         if (playerCollider != null)
         {
@@ -55,7 +58,7 @@ public class FirstPersonMovement : MonoBehaviour
         if (IsClimbing)
         {
             rb.useGravity = false;
-            rb.constraints = RigidbodyConstraints.FreezeRotation; // Возвращаем обычные ограничения
+            rb.constraints = RigidbodyConstraints.FreezeRotation;
             Vector3 climbVelocity = new Vector3(0, inputVector.y * climbSpeed, 0);
             Vector3 horizontalMove = transform.rotation * new Vector3(inputVector.x, 0, 0).normalized * speed;
             rb.linearVelocity = climbVelocity + horizontalMove;
@@ -72,8 +75,8 @@ public class FirstPersonMovement : MonoBehaviour
             }
 
             // ЖЕСТКАЯ БЛОКИРОВКА НА РАМПЕ / ЛЕСТНИЦЕ
-            // Если игрок на земле и НЕ нажимает WASD
-            if (inputVector.sqrMagnitude < 0.01f)
+            // ИЗМЕНЕНО: Блокировка срабатывает ТОЛЬКО если игрок НЕ на конвейере
+            if (inputVector.sqrMagnitude < 0.01f && !isOnConveyor)
             {
                 rb.linearVelocity = Vector3.zero;
                 // Замораживаем позицию по X, Y, Z, чтобы физика и гравитация не могли сдвинуть игрока
@@ -81,7 +84,7 @@ public class FirstPersonMovement : MonoBehaviour
                 return;
             }
 
-            // Если игрок идет, возвращаем стандартное состояние (заморожено только вращение)
+            // Если игрок идет или находится на конвейере, снимаем заморозку позиции
             rb.constraints = RigidbodyConstraints.FreezeRotation;
 
             IsRunning = canRun && runInput;
@@ -94,6 +97,13 @@ public class FirstPersonMovement : MonoBehaviour
 
             Vector3 moveDirection = new Vector3(inputVector.x, 0, inputVector.y).normalized;
             Vector3 targetVelocity = transform.rotation * moveDirection * targetMovingSpeed;
+
+            // ИЗМЕНЕНО: Если игрок стоит на конвейере без движения, мы полностью отдаем управление
+            // физическому движку и скрипту конвейера (не зануляем X и Z скорость силами этого скрипта)
+            if (inputVector.sqrMagnitude < 0.01f && isOnConveyor)
+            {
+                return;
+            }
 
             targetVelocity.y = rb.linearVelocity.y;
             rb.linearVelocity = targetVelocity;

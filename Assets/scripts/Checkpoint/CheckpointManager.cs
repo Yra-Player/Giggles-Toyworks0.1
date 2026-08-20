@@ -6,17 +6,31 @@ public class CheckpointManager : MonoBehaviour
     [Header("Ссылка на игрока")]
     public GameObject playerObject;
 
+    private float _timeOffset = 0f;
+    private string prefix;
+
     private void Awake()
     {
+        //Какой слот выбрал игрок в меню? Если ничего грузим последний сейв
+        int slotToLoad = PlayerPrefs.GetInt("SelectedSlotToLoad", PlayerPrefs.GetInt("LastSelectedSlot", 1));
+        prefix = "Slot_" + slotToLoad + "_";
+
         // Переносим проверку в Awake, чтобы сработать РАНЬШЕ старта скриптов движения
-        if (PlayerPrefs.HasKey("CheckpointX"))
+        if (PlayerPrefs.HasKey(prefix + "CheckpointX"))
         {
+            _timeOffset = PlayerPrefs.GetFloat(prefix + "PlayTime", 0f);
             StartCoroutine(TeleportWithDelay());
         }
         else
         {
             Debug.Log("[CheckpointManager] Сохранений нет. Новая игра.");
         }
+    }
+
+    //Возвращает общее время то что набежало раньше + сколкьо прошлов этой сессии
+    public float GetCurrentPlayTime()
+    {
+        return _timeOffset + Time.timeSinceLevelLoad;
     }
 
     private IEnumerator TeleportWithDelay()
@@ -30,9 +44,9 @@ public class CheckpointManager : MonoBehaviour
         yield return new WaitForEndOfFrame();
 
         // Считываем координаты
-        float x = PlayerPrefs.GetFloat("CheckpointX");
-        float y = PlayerPrefs.GetFloat("CheckpointY");
-        float z = PlayerPrefs.GetFloat("CheckpointZ");
+        float x = PlayerPrefs.GetFloat(prefix + "CheckpointX");
+        float y = PlayerPrefs.GetFloat(prefix +"CheckpointY");
+        float z = PlayerPrefs.GetFloat(prefix + "CheckpointZ");
         Vector3 targetPosition = new Vector3(x, y, z);
 
         // Находим сам триггер чекпоинта на сцене, чтобы узнать, куда направлен его "перед"
@@ -88,8 +102,7 @@ public class CheckpointManager : MonoBehaviour
         // Синхронизируем внутренние углы мыши с новым направлением
         if (lookScript != null)
         {
-            FirstPersonLook fpl = lookScript as FirstPersonLook;
-            if (fpl != null) fpl.InitRotation();
+            lookScript.SendMessage("InitRotation", SendMessageOptions.DontRequireReceiver);
 
             lookScript.enabled = true;
         }
