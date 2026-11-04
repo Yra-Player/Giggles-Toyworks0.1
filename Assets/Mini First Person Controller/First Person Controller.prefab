@@ -496,7 +496,7 @@ MonoBehaviour:
   cursorDot: {fileID: 0}
   normalColor: {r: 1, g: 1, b: 1, a: 1}
   interactColor: {r: 1, g: 0, b: 0, a: 1}
-  rightArmShoulder: {fileID: 3354053969487689819}
+  rightArmShoulder: {fileID: 0}
   rightHandModel: {fileID: 6106294396554974079}
 --- !u!114 &1623136303
 MonoBehaviour:
@@ -659,12 +659,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 97fca36bd81de7c4cafce7bbf02ca611, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  activeConveyorVelocity: {x: 0, y: 0, z: 0}
+  IsPullingUp: 0
   speed: 6.75
   runSpeed: 15
   canRun: 1
   runningKey: 304
   climbSpeed: 4
+  jumpForce: 5
+  jumpKey: 32
   IsClimbing: 0
+  isOnConveyor: 0
 --- !u!114 &114497868231759342
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -679,7 +684,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   jumpForce: 7.5
   fallMultiplier: 2.5
-  lowJumpMultiplier: 2
   groundCheck: {fileID: 114503055206606986}
 --- !u!114 &114762042097486276
 MonoBehaviour:
@@ -1787,9 +1791,6 @@ PrefabInstance:
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
     m_AddedComponents:
-    - targetCorrespondingSourceObject: {fileID: 292576763425083014, guid: 44886146872eced4cb489a4fd48ea1ed, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 1011521802}
     - targetCorrespondingSourceObject: {fileID: 4804760685818441072, guid: 44886146872eced4cb489a4fd48ea1ed, type: 3}
       insertIndex: -1
       addedObject: {fileID: 1093428454}
@@ -1800,67 +1801,6 @@ PrefabInstance:
 --- !u!4 &1608086964270729759 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 741423835348476072, guid: 44886146872eced4cb489a4fd48ea1ed, type: 3}
-  m_PrefabInstance: {fileID: 2025216435592047287}
-  m_PrefabAsset: {fileID: 0}
---- !u!1 &1735137762627249201 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 292576763425083014, guid: 44886146872eced4cb489a4fd48ea1ed, type: 3}
-  m_PrefabInstance: {fileID: 2025216435592047287}
-  m_PrefabAsset: {fileID: 0}
---- !u!114 &1011521802
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1735137762627249201}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e31d94ce7f400ce49b32f5f85803e1c5, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  hands:
-  - name: Left_Arm
-    handTransform: {fileID: 8379056749034923826}
-    startPoint: {fileID: 3813551758924316279}
-    rope: {fileID: 0}
-    inputButton: 0
-    originalParent: {fileID: 0}
-    isFlying: 0
-    isAttached: 0
-    attachedRB: {fileID: 0}
-  - name: Right_Arm
-    handTransform: {fileID: 1895943012645989488}
-    startPoint: {fileID: 8026182697094531625}
-    rope: {fileID: 0}
-    inputButton: 1
-    originalParent: {fileID: 0}
-    isFlying: 0
-    isAttached: 0
-    attachedRB: {fileID: 0}
-  playerTransform: {fileID: 4207293392497186}
-  playerCamera: {fileID: 20437472682476688}
-  speed: 40
-  returnSpeed: 120
-  maxDistance: 60
-  collisionRadius: 0.5
-  pullStrength: 25
-  draggableTag: Box
-  shootCooldown: 0.5
-  hitStickDuration: 0.35
---- !u!4 &1895943012645989488 stripped
-Transform:
-  m_CorrespondingSourceObject: {fileID: 456197827435611847, guid: 44886146872eced4cb489a4fd48ea1ed, type: 3}
-  m_PrefabInstance: {fileID: 2025216435592047287}
-  m_PrefabAsset: {fileID: 0}
---- !u!1 &3354053969487689819 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 3643691162640995052, guid: 44886146872eced4cb489a4fd48ea1ed, type: 3}
-  m_PrefabInstance: {fileID: 2025216435592047287}
-  m_PrefabAsset: {fileID: 0}
---- !u!4 &3813551758924316279 stripped
-Transform:
-  m_CorrespondingSourceObject: {fileID: 2951958375568561344, guid: 44886146872eced4cb489a4fd48ea1ed, type: 3}
   m_PrefabInstance: {fileID: 2025216435592047287}
   m_PrefabAsset: {fileID: 0}
 --- !u!1 &6106294396554974079 stripped
@@ -1927,13 +1867,3 @@ Rigidbody:
   m_Interpolate: 0
   m_Constraints: 0
   m_CollisionDetection: 0
---- !u!4 &8026182697094531625 stripped
-Transform:
-  m_CorrespondingSourceObject: {fileID: 8320885459497246878, guid: 44886146872eced4cb489a4fd48ea1ed, type: 3}
-  m_PrefabInstance: {fileID: 2025216435592047287}
-  m_PrefabAsset: {fileID: 0}
---- !u!4 &8379056749034923826 stripped
-Transform:
-  m_CorrespondingSourceObject: {fileID: 7517457920069455237, guid: 44886146872eced4cb489a4fd48ea1ed, type: 3}
-  m_PrefabInstance: {fileID: 2025216435592047287}
-  m_PrefabAsset: {fileID: 0}

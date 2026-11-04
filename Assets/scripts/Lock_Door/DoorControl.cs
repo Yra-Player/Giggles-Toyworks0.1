@@ -3,7 +3,7 @@ using UnityEngine;
 
 public class DoorControl : MonoBehaviour
 {
-    public enum KeyType { StaffOnly, MiniMarket } // Новые типы в меню
+    public enum KeyType { StaffOnly, MiniMarket }
 
     [Header("Настройки доступа")]
     public bool isLocked = true;
@@ -32,7 +32,6 @@ public class DoorControl : MonoBehaviour
 
         if (isLocked)
         {
-            // ПРОВЕРКА: Соответствует ли ключ типу двери
             if (requiredKey == KeyType.StaffOnly && inventory.HasStaffKey())
             {
                 inventory.UseStaffKey();
@@ -50,6 +49,23 @@ public class DoorControl : MonoBehaviour
         }
         else
         {
+            StartCoroutine(MoveDoor(!isOpen));
+        }
+    }
+
+    // ИНТЕГРАЦИЯ: Этот метод будет вызывать кнопка с пульта охраны
+    public void InteractFromPanel()
+    {
+        if (isProcess) return;
+
+        // Если дверь была заперта на ключ, пульт её взламывает/отпирает
+        if (isLocked)
+        {
+            UnlockAndOpen();
+        }
+        else
+        {
+            // Если уже отперта — просто открывает или закрывает
             StartCoroutine(MoveDoor(!isOpen));
         }
     }

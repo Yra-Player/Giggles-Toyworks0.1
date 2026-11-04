@@ -47,7 +47,8 @@ public class PlayerInteraction : MonoBehaviour
             ButtonSequence soundButton = null;
             DoorControl door = null;
             LeftLever lever = null;
-            TapeRecorder recorder = null; // ƒќЅј¬Ћ≈Ќќ: переменна€ дл€ магнитофона
+            TapeRecorder recorder = null;
+            RemoteButton remoteBtn = null; // »Ќ“≈√–ј÷»я: переменна€ дл€ пульта охраны
             bool isPickableKey = false;
             bool isRightHandItem = false;
 
@@ -57,7 +58,8 @@ public class PlayerInteraction : MonoBehaviour
                 soundButton = hit.collider.GetComponent<ButtonSequence>();
                 door = hit.collider.GetComponent<DoorControl>();
                 lever = hit.collider.GetComponent<LeftLever>();
-                recorder = hit.collider.GetComponent<TapeRecorder>(); // ƒќЅј¬Ћ≈Ќќ: считываем магнитофон при наведении
+                recorder = hit.collider.GetComponent<TapeRecorder>();
+                remoteBtn = hit.collider.GetComponent<RemoteButton>(); // »Ќ“≈√–ј÷»я: считываем пульт при наведении
 
                 if (hit.collider.CompareTag("KeyStaffOnly") || hit.collider.CompareTag("KeyForMiniMarket"))
                 {
@@ -70,8 +72,8 @@ public class PlayerInteraction : MonoBehaviour
                 }
             }
 
-            // »«ћ≈Ќ≈Ќ»≈: прицел теперь краснеет и при наведении на магнитофон (recorder != null)
-            if (button != null || soundButton != null || door != null || lever != null || recorder != null || isPickableKey || isRightHandItem)
+            // »Ќ“≈√–ј÷»я: прицел теперь краснеет и при наведении на пульт (remoteBtn != null)
+            if (button != null || soundButton != null || door != null || lever != null || recorder != null || remoteBtn != null || isPickableKey || isRightHandItem)
             {
                 if (cursorDot != null) cursorDot.color = interactColor;
 
@@ -102,6 +104,11 @@ public class PlayerInteraction : MonoBehaviour
                     {
                         button.PressButton();
                     }
+                    // »Ќ“≈√–ј÷»я: логика клика по кнопке пульта
+                    else if (remoteBtn != null)
+                    {
+                        remoteBtn.PressButton();
+                    }
                     else if (soundButton != null)
                     {
                         soundButton.OnButtonPress();
@@ -110,7 +117,7 @@ public class PlayerInteraction : MonoBehaviour
                     {
                         lever.PullLever();
                     }
-                    else if (recorder != null) // ƒќЅј¬Ћ≈Ќќ: логика интеракта с магнитофоном на кнопку 'E'
+                    else if (recorder != null)
                     {
                         recorder.InsertTape();
                     }

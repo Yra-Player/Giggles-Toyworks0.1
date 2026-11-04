@@ -42,6 +42,8 @@ public class FirstPersonLook : MonoBehaviour
     // Метод Update обязателен: он каждую секунду считывает движения мыши игрока
     void Update()
     {
+        if (Time.timeScale == 0f) return;
+
         // Получаем сдвиг мыши за текущий кадр
         Vector2 mouseDelta = new Vector2(Input.GetAxisRaw("Mouse X"), Input.GetAxisRaw("Mouse Y"));
         Vector2 rawFrameVelocity = Vector2.Scale(mouseDelta, Vector2.one * sensitivity);

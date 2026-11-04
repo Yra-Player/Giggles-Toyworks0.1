@@ -5,10 +5,9 @@ public class Checkpoint : MonoBehaviour
 {
     [Header("Настройка локации")]
     public string locationName = "Название локации";
-    public int slotIndex = 1; //номер слота
-    
-    
-    
+    [Tooltip("Порядковый номер в цепочке (1, 2, 3...). Чекпоинт №2 не включится, пока не наступили на №1!")]
+    public int slotIndex = 1;
+
     [Header("Точка спавна игрока")]
     [Tooltip("Создайте внутри чекпоинта пустой объект (безопасное место на полу) и перетащите сюда")]
     public Transform spawnPoint;
@@ -17,43 +16,91 @@ public class Checkpoint : MonoBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
-        if (!_isTriggered && other.CompareTag("Player"))
+        if (_isTriggered) return;
+
+        string prefix = "Slot_" + slotIndex + "_";
+
+        if (PlayerPrefs.GetInt(prefix + "Exists", 0) == 1)
         {
+            _isTriggered = true;//блокировка тригера для сохранения ресорсов на проверки
+            return;
+        }
+
+        if (other.CompareTag("Player"))
+        {
+            // --- ПРОДВИНУТАЯ ПРОВЕРКА ПОСЛЕДОВАТЕЛЬНОСТИ ---
+            // Если это НЕ самый первый чекпоинт игры, проверяем его предшественника
+            if (slotIndex > 1)
+            {
+                string previousPrefix = "Slot_" + (slotIndex - 1) + "_";
+
+                // Смотрим, существует ли сохранение для предыдущего индекса
+                bool isPreviousActivated = PlayerPrefs.GetInt(previousPrefix + "Exists", 0) == 1;
+
+                if (!isPreviousActivated)
+                {
+                    // Если предыдущий чекпоинт еще не нажат, игнорируем игрока
+                    Debug.Log($"<color=orange>[Checkpoint {slotIndex}] Заблокирован. Сначала нужно активировать Чекпоинт №{slotIndex - 1}!</color>");
+                    return;
+                }
+            }
+            // ------------------------------------------------
+
             if (spawnPoint != null)
             {
-                string prefix = "Slot_" + slotIndex + "_";
 
-                // 1. Сохраняем координаты
+                // --- ЗАЩИТА ОТ ПЕРЕЗАПИСИ ИЗ БУДУЩЕГО ---
+                int sourceSlot = PlayerPrefs.GetInt("SelectedSlotToLoad", 1);
+                float previousPlayTime = 0f;
+
+                if (sourceSlot > 0)
+                {
+                    previousPlayTime = PlayerPrefs.GetFloat("Slot_" + sourceSlot + "_PlayTime", 0f);
+                }
+
+                float currentSessionTime = Time.timeSinceLevelLoad;
+                float totalPlayTime = previousPlayTime + currentSessionTime;
+
+                if (PlayerPrefs.GetInt(prefix + "Exists", 0) == 1)
+                {
+                    float existingPlayTime = PlayerPrefs.GetFloat(prefix + "PlayTime", 0f);
+                    if (existingPlayTime > totalPlayTime)
+                    {
+                        _isTriggered = true;
+                        Debug.Log($"<color=yellow>[Checkpoint {slotIndex}] Игнорирование. В слоте уже есть более позднее сохранение.</color>");
+                        return;
+                    }
+                }
+                // ----------------------------------------
+
+                // 1. Сохраняем координаты для слота и общие
+                PlayerPrefs.SetFloat(prefix + "CheckpointX", spawnPoint.position.x);
+                PlayerPrefs.SetFloat(prefix + "CheckpointY", spawnPoint.position.y);
+                PlayerPrefs.SetFloat(prefix + "CheckpointZ", spawnPoint.position.z);
+
                 PlayerPrefs.SetFloat("CheckpointX", spawnPoint.position.x);
                 PlayerPrefs.SetFloat("CheckpointY", spawnPoint.position.y);
                 PlayerPrefs.SetFloat("CheckpointZ", spawnPoint.position.z);
-                
-                // 2. Сохраняем методанные в стиле Поповича Плейтам
+
+                // 2. Метаданные и время
                 PlayerPrefs.SetString(prefix + "LocationName", locationName);
-                //Дата сейва
                 string currentDate = System.DateTime.Now.ToString("dd.MM.yyyy HH:mm");
                 PlayerPrefs.SetString(prefix + "SaveDate", currentDate);
+                PlayerPrefs.SetFloat(prefix + "PlayTime", totalPlayTime);
 
-                //Сохраняем время проведённое в игре из менеджера
-                CheckpointManager manager = FindFirstObjectByType<CheckpointManager>();
-                if (manager != null)
-                {
-                    PlayerPrefs.SetFloat(prefix + "Playtime", manager.GetCurrentPlayTime());
-                }
-
-                // 3. Теперь мы знаем что этот слот существует
+                // 3. Маркеры
                 PlayerPrefs.SetInt(prefix + "Exists", 1);
-
-                //ОБновляем маркер для кнопки продолжить
                 PlayerPrefs.SetInt("HasAnySave", 1);
-                //Запоминаем последний слот чтобы загрузка знала его по умолч
-                PlayerPrefs.SetInt("LastSelectedSlot", slotIndex);
+                int historicalMaxSlot = PlayerPrefs.GetInt("LastSelectedSlot", 0);
+                if (slotIndex > historicalMaxSlot)
+                {
+                    PlayerPrefs.SetInt("LastSelectedSlot", slotIndex);
+                }
 
                 PlayerPrefs.Save();
 
-
                 _isTriggered = true;
-                Debug.Log($"[Checkpoint] Координаты сохранены в точке: {spawnPoint.position}");
+                Debug.Log($"<color=green>[Checkpoint {slotIndex}] Успешно активирован в цепочке! Время: {totalPlayTime} сек.</color>");
             }
             else
             {

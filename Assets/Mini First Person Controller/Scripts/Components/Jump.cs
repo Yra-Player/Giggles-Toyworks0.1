@@ -6,11 +6,9 @@ public class Jump : MonoBehaviour
     private Rigidbody rb;
 
     [Header("Jump Settings")]
-    public float jumpForce = 7.5f;
+    public float jumpForce = 7.5f; // НАСТРОЙКА ВЫСОТЫ ПРЫЖКА С ЗЕМЛИ
     [Tooltip("Множитель гравитации при падении. Убирает эффект космоса.")]
     public float fallMultiplier = 2.5f;
-    [Tooltip("Множитель гравитации при коротком нажатии пробела.")]
-    public float lowJumpMultiplier = 2f;
 
     public event System.Action Jumped;
 
@@ -31,7 +29,7 @@ public class Jump : MonoBehaviour
 
     void Update()
     {
-        // Ловим нажатие пробела в Update, чтобы прыжок не залипал
+        // Ловим нажатие пробела
         if (Input.GetButtonDown("Jump") && (!groundCheck || groundCheck.isGrounded))
         {
             jumpRequested = true;
@@ -50,16 +48,10 @@ public class Jump : MonoBehaviour
             jumpRequested = false;
         }
 
-        // Продвинутая гравитация, которая убирает ощущение космоса
+        // Реалистичное тяжелое падение вниз после прохождения пика прыжка
         if (rb.linearVelocity.y < 0)
         {
-            // Персонаж падает быстрее и ощущается тяжелым
             rb.linearVelocity += Vector3.up * Physics.gravity.y * (fallMultiplier - 1) * Time.fixedDeltaTime;
-        }
-        else if (rb.linearVelocity.y > 0 && !Input.GetButton("Jump"))
-        {
-            // Если игрок отпустил пробел раньше времени — прыжок срезается (механика как в Марио)
-            rb.linearVelocity += Vector3.up * Physics.gravity.y * (lowJumpMultiplier - 1) * Time.fixedDeltaTime;
         }
     }
 }

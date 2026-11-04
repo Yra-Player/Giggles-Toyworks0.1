@@ -3,7 +3,7 @@ using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using UnityEngine.Video;
 using System.Collections;
-using TMPro; // ОБЯЗАТЕЛЬНО: Добавляем библиотеку для работы с TextMeshPro
+using TMPro;
 
 public class MainMenu : MonoBehaviour
 {
@@ -13,7 +13,7 @@ public class MainMenu : MonoBehaviour
 
     [Header("Панели интерфейса")]
     [SerializeField] private GameObject buttonPanel;
-    [SerializeField] private GameObject settingsPanel;
+    [SerializeField] private UI_SettingsPanel settingsPanel; // Тип изменен на UI_SettingsPanel
     [SerializeField] private GameObject gameTitle;
 
     [Header("Динамический список чекпоинтов")]
@@ -21,7 +21,7 @@ public class MainMenu : MonoBehaviour
     [SerializeField] private GameObject slotsContainer;
     [SerializeField] private GameObject slotPrefab;
 
-    [Header("Картинки локаций (По порядку их открытия в игре)")]
+    [Header("Картинки локаций (По порядку их открытия in игре)")]
     [SerializeField] private Sprite[] locationSprites;
 
     [Header("Настройки Интро (MP4)")]
@@ -33,12 +33,19 @@ public class MainMenu : MonoBehaviour
     {
         if (buttonPanel != null) buttonPanel.SetActive(true);
         if (gameTitle != null) gameTitle.SetActive(true);
-        if (settingsPanel != null) settingsPanel.SetActive(false);
+        if (settingsPanel != null) settingsPanel.gameObject.SetActive(false);
         if (checkpointPanel != null) checkpointPanel.SetActive(false);
         if (videoScreen != null) videoScreen.SetActive(false);
         if (skipVideoButton != null) skipVideoButton.gameObject.SetActive(false);
 
         if (videoPlayer != null) videoPlayer.loopPointReached += OnVideoFinished;
+
+        // ЖЕЛЕЗНАЯ ПОДПИСКА: Главное меню всегда слушает закрытие панели настроек
+        if (settingsPanel != null)
+        {
+            settingsPanel.OnPanelClosed.RemoveAllListeners();
+            settingsPanel.OnPanelClosed.AddListener(CloseSettingsCallback);
+        }
 
         if (PlayerPrefs.GetInt("HasAnySave", 0) == 1)
         {
@@ -52,23 +59,7 @@ public class MainMenu : MonoBehaviour
 
     public void NewGame()
     {
-        int totalSlots = PlayerPrefs.GetInt("MaxSavedSlotsCount", 20);
-        for (int i = 1; i <= totalSlots; i++)
-        {
-            string p = "Slot_" + i + "_";
-            PlayerPrefs.DeleteKey(p + "CheckpointX");
-            PlayerPrefs.DeleteKey(p + "CheckpointY");
-            PlayerPrefs.DeleteKey(p + "CheckpointZ");
-            PlayerPrefs.DeleteKey(p + "LocationName");
-            PlayerPrefs.DeleteKey(p + "SaveDate");
-            PlayerPrefs.DeleteKey(p + "PlayTime");
-            PlayerPrefs.DeleteKey(p + "Exists");
-        }
-
-        PlayerPrefs.DeleteKey("HasAnySave");
-        PlayerPrefs.DeleteKey("LastSelectedSlot");
-        PlayerPrefs.DeleteKey("SelectedSlotToLoad");
-        PlayerPrefs.DeleteKey("MaxSavedSlotsCount");
+        PlayerPrefs.DeleteAll();
         PlayerPrefs.Save();
 
         if (videoPlayer != null && videoScreen != null)
@@ -118,7 +109,6 @@ public class MainMenu : MonoBehaviour
             {
                 GameObject newSlot = Instantiate(slotPrefab, slotsContainer.transform);
 
-                // ИСПРАВЛЕНО: Теперь скрипт ищет компоненты по их точному типу и иерархии
                 Image slotImage = newSlot.transform.Find("Image").GetComponent<Image>();
                 TMP_Text slotText = newSlot.transform.Find("InfoText").GetComponent<TMP_Text>();
 
@@ -149,7 +139,7 @@ public class MainMenu : MonoBehaviour
         }
     }
 
-    private void LoadSlotAndStart(int slotIndex)
+    public void LoadSlotAndStart(int slotIndex)
     {
         PlayerPrefs.SetInt("SelectedSlotToLoad", slotIndex);
         PlayerPrefs.Save();
@@ -168,7 +158,25 @@ public class MainMenu : MonoBehaviour
     private void OnVideoFinished(VideoPlayer vp) => StartGameLoading();
     public void SkipVideo() { if (videoPlayer != null && videoPlayer.isPlaying) { videoPlayer.Stop(); StartGameLoading(); } }
     private void StartGameLoading() => SceneLoader.Load(gameSceneName);
-    public void OpenSettings() { buttonPanel.SetActive(false); gameTitle.SetActive(false); settingsPanel.SetActive(true); }
-    public void CloseSettings() { settingsPanel.SetActive(false); buttonPanel.SetActive(true); gameTitle.SetActive(true); }
+
+    public void OpenSettings()
+    {
+        if (buttonPanel != null) buttonPanel.SetActive(false);
+        if (gameTitle != null) gameTitle.SetActive(false);
+
+        if (settingsPanel != null)
+        {
+            settingsPanel.gameObject.SetActive(true);
+            settingsPanel.Open();
+        }
+    }
+
+    // Автоматически вызывается, когда в префабе настроек нажимают "Закрыть"
+    private void CloseSettingsCallback()
+    {
+        if (buttonPanel != null) buttonPanel.SetActive(true);
+        if (gameTitle != null) gameTitle.SetActive(true);
+    }
+
     public void ExitGame() => Application.Quit();
 }

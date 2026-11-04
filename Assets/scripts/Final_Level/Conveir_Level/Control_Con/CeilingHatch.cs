@@ -4,33 +4,24 @@ using UnityEngine;
 public class CeilingHatch : MonoBehaviour, IGripInteractable
 {
     [Header("Ссылки")]
-    public Transform hatchTransform;
-    public Rigidbody ladderRigidbody; 
-
-    [Header("Настройки анимации люка")]
-    public float openAngle = -90f;
-    public float openSpeed = 5f;
-    public Vector3 rotationAxis = Vector3.forward; 
+    [Tooltip("Rigidbody самого люка, который будет отрываться и падать.")]
+    public Rigidbody hatchRigidbody;
 
     [Header("Тайминги")]
     public float holdDuration = 3f;
 
+    [Header("Настройки импульса (Необязательно)")]
+    [Tooltip("Сила, с которой люк выталкивается вниз или в сторону в момент отрыва.")]
+    public Vector3 pushForce = new Vector3(0f, -2f, 0f);
+
     private bool isActivated = false;
-    private Quaternion initialRotation;
-    private Quaternion targetRotation;
 
     void Start()
     {
-        if (hatchTransform != null)
+        // В начале игры гарантируем, что люк жестко зафиксирован на потолке
+        if (hatchRigidbody != null)
         {
-            initialRotation = hatchTransform.localRotation;
-            targetRotation = initialRotation * Quaternion.AngleAxis(openAngle, rotationAxis);
-        }
-
-        
-        if (ladderRigidbody != null)
-        {
-            ladderRigidbody.isKinematic = true;
+            hatchRigidbody.isKinematic = true;
         }
     }
 
@@ -39,33 +30,27 @@ public class CeilingHatch : MonoBehaviour, IGripInteractable
         if (!isActivated)
         {
             isActivated = true;
-            StartCoroutine(HatchSequenceRoutine());
+            StartCoroutine(HatchDetachRoutine());
         }
     }
 
     public void OnGripStop()
     {
+        // Логика при отпускании кнопки (если требуется прерывать удержание, можно добавить сюда)
     }
 
-    IEnumerator HatchSequenceRoutine()
+    IEnumerator HatchDetachRoutine()
     {
+        // Ждем заданное время удержания
         yield return new WaitForSeconds(holdDuration);
 
-        
-        if (ladderRigidbody != null)
+        if (hatchRigidbody != null)
         {
-            ladderRigidbody.isKinematic = false;
-        }
+            // Освобождаем физику люка — теперь он подвержен гравитации и падает
+            hatchRigidbody.isKinematic = false;
 
-        while (hatchTransform != null && Quaternion.Angle(hatchTransform.localRotation, targetRotation) > 0.1f)
-        {
-            hatchTransform.localRotation = Quaternion.Slerp(hatchTransform.localRotation, targetRotation, Time.deltaTime * openSpeed);
-            yield return null;
-        }
-
-        if (hatchTransform != null)
-        {
-            hatchTransform.localRotation = targetRotation;
+            // Добавляем начальный толчок, чтобы люк отвалился более эффектно
+            hatchRigidbody.AddForce(pushForce, ForceMode.VelocityChange);
         }
     }
 }

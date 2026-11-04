@@ -11,9 +11,7 @@ public class CheckpointManager : MonoBehaviour
 
     private void Awake()
     {
-        //Какой слот выбрал игрок в меню? Если ничего грузим последний сейв
-        int slotToLoad = PlayerPrefs.GetInt("SelectedSlotToLoad", PlayerPrefs.GetInt("LastSelectedSlot", 1));
-        prefix = "Slot_" + slotToLoad + "_";
+        InitSlotPrefix();
 
         // Переносим проверку в Awake, чтобы сработать РАНЬШЕ старта скриптов движения
         if (PlayerPrefs.HasKey(prefix + "CheckpointX"))
@@ -24,6 +22,28 @@ public class CheckpointManager : MonoBehaviour
         else
         {
             Debug.Log("[CheckpointManager] Сохранений нет. Новая игра.");
+        }
+    }
+
+    private void InitSlotPrefix()
+    {
+        int slotToLoad = PlayerPrefs.GetInt("SelectedSlotToLoad", PlayerPrefs.GetInt("LastSelectedSlot", 1));
+        prefix = "Slot_" + slotToLoad + "_";
+    }
+
+    // 🔥 НОВЫЙ МЕТОД: Публичная функция для вызова из DeathScreenManager при возрождении
+    public void LoadLastSave()
+    {
+        InitSlotPrefix(); //на всякий случай
+
+        if (PlayerPrefs.HasKey(prefix + "CheckpointX"))
+        {
+            Debug.Log("[CheckpointManger] Загрузка чекпоинта после смерти");
+            StartCoroutine(TeleportWithDelay());
+        }
+        else
+        {
+            Debug.LogWarning("[CheckpointManager] Попытка загрузки");
         }
     }
 
