@@ -1,14 +1,28 @@
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 public class GripclawVisuals : MonoBehaviour
 {
+    [Header("Настройки слежения плеч")]
+    [Tooltip("Скорость поворота плеча за рукой и возврата в исходное положение")]
+    public float shoulderTrackSpeed = 15f;
+
+    [Tooltip("Поправка осей пивота плеча (если синяя стрелка Z смотрит вперед, оставь 0, 0, 0)")]
+    public Vector3 shoulderRotationOffset = Vector3.zero;
+
     private GripclawsManager manager;
     private Dictionary<GripclawHand, List<Transform>> cylinderPool = new Dictionary<GripclawHand, List<Transform>>();
+    private Dictionary<GripclawHand, Quaternion> initialShoulderRotations = new Dictionary<GripclawHand, Quaternion>();
 
     void Awake()
     {
         manager = GetComponent<GripclawsManager>();
+    }
+
+    private Transform GetRopeOrigin(GripclawHand hand)
+    {
+        return hand.ropeStartPoint != null ? hand.ropeStartPoint : hand.startPoint;
     }
 
     public void RenderHandVisuals(GripclawHand[] hands)
@@ -17,8 +31,15 @@ public class GripclawVisuals : MonoBehaviour
         {
             if (hand == null) continue;
 
+            if (hand.shoulder != null && !initialShoulderRotations.ContainsKey(hand))
+            {
+                initialShoulderRotations[hand] = hand.shoulder.localRotation;
+            }
+
             if (hand.handTransform != null && (hand.isFlying || hand.isAttached))
             {
+                UpdateShoulderRotation(hand, true);
+
                 if (hand.rope != null) hand.rope.enabled = true;
 
                 DrawRope(hand);
@@ -29,20 +50,48 @@ public class GripclawVisuals : MonoBehaviour
             {
                 if (hand.rope != null) hand.rope.enabled = false;
                 HideAllCylinders(hand);
+                UpdateShoulderRotation(hand, false);
             }
+        }
+    }
+
+    private void UpdateShoulderRotation(GripclawHand hand, bool isTracking)
+    {
+        if (hand.shoulder == null) return;
+
+        if (isTracking)
+        {
+            Vector3 targetPos = hand.bendPoints.Count > 0 ? hand.bendPoints.First() : hand.handTransform.position;
+            Vector3 direction = targetPos - hand.shoulder.position;
+
+            if (direction.sqrMagnitude > 0.001f)
+            {
+                Vector3 upVector = manager.playerTransform != null ? manager.playerTransform.up : Vector3.up;
+                Quaternion lookRot = Quaternion.LookRotation(direction, upVector) * Quaternion.Euler(shoulderRotationOffset);
+                hand.shoulder.rotation = Quaternion.Slerp(hand.shoulder.rotation, lookRot, shoulderTrackSpeed * Time.deltaTime);
+            }
+        }
+        else if (initialShoulderRotations.ContainsKey(hand))
+        {
+            hand.shoulder.localRotation = Quaternion.Slerp(
+                hand.shoulder.localRotation,
+                initialShoulderRotations[hand],
+                shoulderTrackSpeed * Time.deltaTime
+            );
         }
     }
 
     private void DrawRope(GripclawHand hand)
     {
-        if (hand.rope == null) return;
+        Transform origin = GetRopeOrigin(hand);
+        if (hand.rope == null || origin == null) return;
 
         hand.rope.startWidth = 0.05f;
         hand.rope.endWidth = 0.05f;
 
         int pointCount = 2 + hand.bendPoints.Count;
         hand.rope.positionCount = pointCount;
-        hand.rope.SetPosition(0, hand.startPoint.position);
+        hand.rope.SetPosition(0, origin.position);
 
         for (int i = 0; i < hand.bendPoints.Count; i++)
         {
@@ -53,12 +102,13 @@ public class GripclawVisuals : MonoBehaviour
 
     private void UpdateCableBending(GripclawHand hand)
     {
+        Transform origin = GetRopeOrigin(hand);
         if (!hand.isAttached && !hand.isFlying) return;
-        if (hand.handTransform == null) return;
+        if (hand.handTransform == null || origin == null) return;
 
         int layerMask = ~(1 << 2);
 
-        Vector3 lastPoint = hand.bendPoints.Count > 0 ? hand.bendPoints[hand.bendPoints.Count - 1] : hand.startPoint.position;
+        Vector3 lastPoint = hand.bendPoints.Count > 0 ? hand.bendPoints[hand.bendPoints.Count - 1] : origin.position;
         Vector3 handPos = hand.handTransform.position;
 
         if (Vector3.Distance(lastPoint, handPos) > 0.05f)
@@ -77,17 +127,17 @@ public class GripclawVisuals : MonoBehaviour
             }
         }
 
-        Vector3 firstPoint = hand.bendPoints.Count > 0 ? hand.bendPoints[0] : hand.handTransform.position;
-        Vector3 playerPos = hand.startPoint.position;
+        Vector3 firstPoint = hand.bendPoints.Count > 0 ? hand.bendPoints.First() : hand.handTransform.position;
+        Vector3 originPos = origin.position;
 
-        if (Vector3.Distance(playerPos, firstPoint) > 0.05f)
+        if (Vector3.Distance(originPos, firstPoint) > 0.05f)
         {
-            if (Physics.Linecast(playerPos, firstPoint, out RaycastHit hit, layerMask, QueryTriggerInteraction.Ignore))
+            if (Physics.Linecast(originPos, firstPoint, out RaycastHit hit, layerMask, QueryTriggerInteraction.Ignore))
             {
                 if (hit.transform != manager.playerTransform && hit.transform != hand.handTransform && !hit.collider.isTrigger)
                 {
                     Vector3 offsetPos = hit.point + hit.normal * 0.25f;
-                    if (hand.bendPoints.Count == 0 || Vector3.Distance(hand.bendPoints[0], offsetPos) > 0.4f)
+                    if (hand.bendPoints.Count == 0 || Vector3.Distance(hand.bendPoints.First(), offsetPos) > 0.4f)
                     {
                         hand.bendPoints.Insert(0, offsetPos);
                         return;
@@ -98,7 +148,7 @@ public class GripclawVisuals : MonoBehaviour
 
         if (hand.bendPoints.Count > 0)
         {
-            Vector3 pointBeforeLast = hand.bendPoints.Count > 1 ? hand.bendPoints[hand.bendPoints.Count - 2] : hand.startPoint.position;
+            Vector3 pointBeforeLast = hand.bendPoints.Count > 1 ? hand.bendPoints[hand.bendPoints.Count - 2] : origin.position;
             if (!Physics.Linecast(pointBeforeLast, handPos, out RaycastHit hit, layerMask, QueryTriggerInteraction.Ignore))
             {
                 hand.bendPoints.RemoveAt(hand.bendPoints.Count - 1);
@@ -108,7 +158,7 @@ public class GripclawVisuals : MonoBehaviour
             if (hand.bendPoints.Count > 0)
             {
                 Vector3 pointAfterFirst = hand.bendPoints.Count > 1 ? hand.bendPoints[1] : hand.handTransform.position;
-                if (!Physics.Linecast(playerPos, pointAfterFirst, out hit, layerMask, QueryTriggerInteraction.Ignore))
+                if (!Physics.Linecast(originPos, pointAfterFirst, out hit, layerMask, QueryTriggerInteraction.Ignore))
                 {
                     hand.bendPoints.RemoveAt(0);
                     return;
@@ -119,10 +169,11 @@ public class GripclawVisuals : MonoBehaviour
 
     private void UpdateSegmentedCylinders(GripclawHand hand)
     {
-        if (hand.ropeCylinder == null || hand.startPoint == null) return;
+        Transform origin = GetRopeOrigin(hand);
+        if (hand.ropeCylinder == null || origin == null) return;
 
         List<Vector3> allPoints = new List<Vector3>();
-        allPoints.Add(hand.startPoint.position);
+        allPoints.Add(origin.position);
         allPoints.AddRange(hand.bendPoints);
         allPoints.Add(hand.handTransform.position);
 

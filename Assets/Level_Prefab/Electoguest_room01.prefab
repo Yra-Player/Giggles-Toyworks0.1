@@ -29470,6 +29470,14 @@ PrefabInstance:
       propertyPath: isLocked
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 8726693546341389389, guid: b68e3f97ff930654798596b1412281db, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -7.84
+      objectReference: {fileID: 0}
+    - target: {fileID: 8726693546341389389, guid: b68e3f97ff930654798596b1412281db, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0.44
+      objectReference: {fileID: 0}
     - target: {fileID: 8847764449476764928, guid: b68e3f97ff930654798596b1412281db, type: 3}
       propertyPath: m_LocalScale.x
       value: 0.8718419

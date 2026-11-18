@@ -1,7 +1,9 @@
-﻿using UnityEngine;
+﻿using System.Linq;
+using UnityEngine;
 
 [RequireComponent(typeof(GripclawPhysics))]
 [RequireComponent(typeof(GripclawVisuals))]
+[RequireComponent(typeof(GripclawAudio))]
 public class GripclawsManager : MonoBehaviour
 {
     [Header("Hands Setup")]
@@ -28,18 +30,28 @@ public class GripclawsManager : MonoBehaviour
 
     private GripclawPhysics physicsModule;
     private GripclawVisuals visualsModule;
+    private GripclawAudio audioModule;
+    private CharacterController playerController;
+    private Rigidbody playerRigidbody;
     private float lastDetachTime;
 
     void Awake()
     {
         physicsModule = GetComponent<GripclawPhysics>();
         visualsModule = GetComponent<GripclawVisuals>();
+        audioModule = GetComponent<GripclawAudio>();
     }
 
     void Start()
     {
         if (playerCamera == null) playerCamera = Camera.main;
         if (playerTransform == null) playerTransform = transform;
+
+        if (playerTransform != null)
+        {
+            playerController = playerTransform.GetComponent<CharacterController>();
+            playerRigidbody = playerTransform.GetComponent<Rigidbody>();
+        }
     }
 
     void Update()
@@ -68,6 +80,7 @@ public class GripclawsManager : MonoBehaviour
                 if (Input.GetMouseButtonDown(hand.inputButton))
                 {
                     physicsModule.LaunchHand(hand);
+                    if (audioModule != null) audioModule.PlayFlyAudio(hand);
                 }
             }
         }
@@ -75,51 +88,107 @@ public class GripclawsManager : MonoBehaviour
 
     void LateUpdate()
     {
+        EnforceCableTension();
         visualsModule.RenderHandVisuals(hands);
+
+        if (audioModule != null)
+        {
+            foreach (var hand in hands)
+            {
+                if (hand != null && hand.isFlying)
+                {
+                    audioModule.UpdateFlyTensionAudio(hand);
+                }
+            }
+        }
+
         UpdateUIIndicator();
+    }
+
+    // Блокирует дальнейшее удаление игрока, когда кабель натянут до предела, а кнопка зажата
+    private void EnforceCableTension()
+    {
+        if (playerTransform == null) return;
+
+        foreach (var hand in hands)
+        {
+            if (hand == null || !hand.isAttached || hand.handTransform == null) continue;
+            if (!Input.GetMouseButton(hand.inputButton)) continue;
+
+            // Если рука держит легкую коробку, которую можно тянуть — не стопорим игрока
+            if (hand.attachedRB != null && !hand.attachedRB.isKinematic) continue;
+
+            float usedLength = hand.GetTotalCableLength();
+            if (usedLength > maxDistance)
+            {
+                float excess = usedLength - maxDistance;
+
+                // Определяем ближайшую к игроку точку крепления (первый угол изгиба или саму руку)
+                Vector3 anchorPoint = hand.bendPoints.Count > 0
+                    ? hand.bendPoints.First()
+                    : hand.handTransform.position;
+
+                Vector3 originPos = hand.ropeStartPoint != null ? hand.ropeStartPoint.position : hand.startPoint.position;
+                Vector3 pullBackDir = (anchorPoint - originPos).normalized;
+
+                // Не даем утягивать игрока под пол или в потолок по оси Y, если он просто идет
+                pullBackDir.y = 0f;
+                if (pullBackDir.sqrMagnitude > 0.001f)
+                {
+                    pullBackDir.Normalize();
+                    Vector3 correction = pullBackDir * excess;
+
+                    if (playerController != null && playerController.enabled)
+                    {
+                        playerController.Move(correction);
+                    }
+                    else if (playerRigidbody != null && !playerRigidbody.isKinematic)
+                    {
+                        playerRigidbody.MovePosition(playerRigidbody.position + correction);
+                    }
+                    else
+                    {
+                        playerTransform.position += correction;
+                    }
+                }
+            }
+        }
     }
 
     private void UpdateUIIndicator()
     {
         if (distanceIndicator == null) return;
 
-        float maxCurrentDist = 0f;
+        float maxUsedCable = 0f;
         bool anyHandActive = false;
 
         foreach (var hand in hands)
         {
-            // Проверяем существование руки и её компонентов
             if (hand != null && hand.handTransform != null)
             {
-                // Берем флаги активности напрямую из runtime-состояния руки
                 if (hand.isFlying || hand.isAttached)
                 {
                     anyHandActive = true;
 
-                    // Считаем расстояние от точки вылета до текущего положения летящей ладони
-                    float dist = Vector3.Distance(hand.startPoint.position, hand.handTransform.position);
-                    if (dist > maxCurrentDist) maxCurrentDist = dist;
+                    float usedLength = hand.GetTotalCableLength();
+                    if (usedLength > maxUsedCable) maxUsedCable = usedLength;
                 }
             }
         }
 
         if (anyHandActive)
         {
-            // Вычисляем процент заполнения круга (от 1 до 0 по мере удаления руки)
-            float fillRatio = 1f - (maxCurrentDist / maxDistance);
+            float fillRatio = 1f - (maxUsedCable / maxDistance);
             distanceIndicator.fillAmount = Mathf.Clamp01(fillRatio);
         }
         else
         {
-            // Если руки возвращены или не активны, индикатор полностью заполнен (или скрыт)
             distanceIndicator.fillAmount = 1f;
         }
     }
-
 
     public void SetDetachCooldown()
     {
         lastDetachTime = Time.time;
     }
-
 }

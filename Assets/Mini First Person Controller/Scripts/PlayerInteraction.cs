@@ -1,5 +1,3 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -17,118 +15,114 @@ public class PlayerInteraction : MonoBehaviour
     public GameObject rightArmShoulder;
     public GameObject rightHandModel;
 
-    void Start()
+    private Inventory _inventory;
+
+    private void Start()
     {
-        if (PlayerPrefs.GetInt("HasRightHand", 0) == 1)
+        _inventory = GetComponent<Inventory>();
+
+        bool hasRightHand = PlayerPrefs.GetInt("HasRightHand", 0) == 1;
+        SetRightHandActive(hasRightHand);
+
+        if (hasRightHand)
         {
-            if (rightArmShoulder != null) rightArmShoulder.SetActive(true);
-            if (rightHandModel != null) rightHandModel.SetActive(true);
             Debug.Log("[PlayerInteraction] ѕрава€ рука восстановлена из сохранени€ при старте.");
         }
-        else
-        {
-            if (rightArmShoulder != null) rightArmShoulder.SetActive(false);
-            if (rightHandModel != null) rightHandModel.SetActive(false);
-        }
-
-        StartCoroutine(InteractionRoutine());
     }
 
-    IEnumerator InteractionRoutine()
+    private void Update()
     {
-        while (true)
+        Ray ray = new Ray(transform.position, transform.forward);
+
+        if (Physics.Raycast(ray, out RaycastHit hit, interactDist))
         {
-            Ray ray = new Ray(transform.position, transform.forward);
-            RaycastHit hit;
+            Collider col = hit.collider;
 
-            bool hitSomething = Physics.Raycast(ray, out hit, interactDist);
+            // ѕровер€ем все интерактивные компоненты и теги
+            LockButton button = col.GetComponent<LockButton>();
+            DoorControl door = col.GetComponent<DoorControl>();
+            LeftLever lever = col.GetComponent<LeftLever>();
+            TapeRecorder recorder = col.GetComponent<TapeRecorder>();
+            RemoteButton remoteBtn = col.GetComponent<RemoteButton>();
 
-            LockButton button = null;
-            ButtonSequence soundButton = null;
-            DoorControl door = null;
-            LeftLever lever = null;
-            TapeRecorder recorder = null;
-            RemoteButton remoteBtn = null; // »Ќ“≈√–ј÷»я: переменна€ дл€ пульта охраны
-            bool isPickableKey = false;
-            bool isRightHandItem = false;
+            bool isPickableKey = col.CompareTag("KeyStaffOnly") || col.CompareTag("KeyForMiniMarket");
+            bool isRightHandItem = col.CompareTag("Item_Right_hand");
 
-            if (hitSomething)
+            bool canInteract = button != null || door != null || lever != null ||
+                               recorder != null || remoteBtn != null ||
+                               isPickableKey || isRightHandItem;
+
+            if (canInteract)
             {
-                button = hit.collider.GetComponent<LockButton>();
-                soundButton = hit.collider.GetComponent<ButtonSequence>();
-                door = hit.collider.GetComponent<DoorControl>();
-                lever = hit.collider.GetComponent<LeftLever>();
-                recorder = hit.collider.GetComponent<TapeRecorder>();
-                remoteBtn = hit.collider.GetComponent<RemoteButton>(); // »Ќ“≈√–ј÷»я: считываем пульт при наведении
-
-                if (hit.collider.CompareTag("KeyStaffOnly") || hit.collider.CompareTag("KeyForMiniMarket"))
-                {
-                    isPickableKey = true;
-                }
-
-                if (hit.collider.CompareTag("Item_Right_hand"))
-                {
-                    isRightHandItem = true;
-                }
-            }
-
-            // »Ќ“≈√–ј÷»я: прицел теперь краснеет и при наведении на пульт (remoteBtn != null)
-            if (button != null || soundButton != null || door != null || lever != null || recorder != null || remoteBtn != null || isPickableKey || isRightHandItem)
-            {
-                if (cursorDot != null) cursorDot.color = interactColor;
+                SetCursorColor(interactColor);
 
                 if (Input.GetKeyDown(KeyCode.E))
                 {
-                    Inventory inventory = GetComponent<Inventory>();
-
-                    if (isRightHandItem)
-                    {
-                        if (rightArmShoulder != null) rightArmShoulder.SetActive(true);
-                        if (rightHandModel != null) rightHandModel.SetActive(true);
-
-                        PlayerPrefs.SetInt("HasRightHand", 1);
-                        PlayerPrefs.Save();
-
-                        Destroy(hit.collider.gameObject);
-                        Debug.Log("[PlayerInteraction] ѕрава€ рука подобрана, активирована и сохранена в сейв!");
-                    }
-                    else if (isPickableKey)
-                    {
-                        if (inventory != null) inventory.AddKey(hit.collider.gameObject);
-                    }
-                    else if (door != null)
-                    {
-                        if (inventory != null) door.TryOpen(inventory);
-                    }
-                    else if (button != null)
-                    {
-                        button.PressButton();
-                    }
-                    // »Ќ“≈√–ј÷»я: логика клика по кнопке пульта
-                    else if (remoteBtn != null)
-                    {
-                        remoteBtn.PressButton();
-                    }
-                    else if (soundButton != null)
-                    {
-                        soundButton.OnButtonPress();
-                    }
-                    else if (lever != null)
-                    {
-                        lever.PullLever();
-                    }
-                    else if (recorder != null)
-                    {
-                        recorder.InsertTape();
-                    }
+                    HandleInteraction(col.gameObject, button, door, lever, recorder, remoteBtn, isPickableKey, isRightHandItem);
                 }
+                return;
             }
-            else
-            {
-                if (cursorDot != null) cursorDot.color = normalColor;
-            }
+        }
 
-            yield return null;
+        SetCursorColor(normalColor);
+    }
+
+    private void HandleInteraction(
+        GameObject targetObj,
+        LockButton button,
+        DoorControl door,
+        LeftLever lever,
+        TapeRecorder recorder,
+        RemoteButton remoteBtn,
+        bool isPickableKey,
+        bool isRightHandItem)
+    {
+        if (isRightHandItem)
+        {
+            SetRightHandActive(true);
+            PlayerPrefs.SetInt("HasRightHand", 1);
+            PlayerPrefs.Save();
+
+            Destroy(targetObj);
+            Debug.Log("[PlayerInteraction] ѕрава€ рука подобрана, активирована и сохранена в сейв!");
+        }
+        else if (isPickableKey && _inventory != null)
+        {
+            _inventory.AddKey(targetObj);
+        }
+        else if (door != null && _inventory != null)
+        {
+            door.TryOpen(_inventory);
+        }
+        else if (button != null)
+        {
+            button.PressButton();
+        }
+        else if (remoteBtn != null)
+        {
+            remoteBtn.PressButton();
+        }
+        else if (lever != null)
+        {
+            lever.PullLever();
+        }
+        else if (recorder != null)
+        {
+            recorder.InsertTape();
+        }
+    }
+
+    private void SetRightHandActive(bool isActive)
+    {
+        if (rightArmShoulder != null) rightArmShoulder.SetActive(isActive);
+        if (rightHandModel != null) rightHandModel.SetActive(isActive);
+    }
+
+    private void SetCursorColor(Color color)
+    {
+        if (cursorDot != null && cursorDot.color != color)
+        {
+            cursorDot.color = color;
         }
     }
 }

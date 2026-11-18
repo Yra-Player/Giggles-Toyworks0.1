@@ -1,15 +1,16 @@
 using System.Collections;
 using UnityEngine;
 
-//Просчитывает корутины движения и зацепов.
-
+// Просчитывает корутины движения и зацепов.
 public class GripclawPhysics : MonoBehaviour
 {
     private GripclawsManager manager;
+    private GripclawAudio audioModule;
 
     void Awake()
     {
         manager = GetComponent<GripclawsManager>();
+        audioModule = GetComponent<GripclawAudio>();
     }
 
     public void LaunchHand(GripclawHand hand)
@@ -34,18 +35,17 @@ public class GripclawPhysics : MonoBehaviour
             shootDirection = aimRay.direction;
         }
 
-        while (Vector3.Distance(hand.startPoint.position, hand.handTransform.position) < manager.maxDistance)
+        while (hand.GetTotalCableLength() < manager.maxDistance)
         {
             if (!hand.handTransform.gameObject.activeInHierarchy) break;
 
             Vector3 nextPosition = hand.handTransform.position + shootDirection * manager.speed * Time.deltaTime;
             float stepDistance = manager.speed * Time.deltaTime + 0.5f;
-            int layerMask = ~(1 << 2); // Игнорируем Ignore Raycast
+            int layerMask = ~(1 << 2);
 
-            // 1. ПРОВЕРКА НА ТРИГГЕРЫ-СКАНЕРЫ (Специально ищем интерактивные триггеры)
+            // 1. ПРОВЕРКА НА ТРИГГЕРЫ-СКАНЕРЫ И РЫЧАГИ
             if (Physics.Raycast(hand.handTransform.position, shootDirection, out RaycastHit triggerHit, stepDistance, layerMask, QueryTriggerInteraction.Collide))
             {
-                // Если это триггер, но у него правильный тег (Сканер, Рычаг и т.д.)
                 if (triggerHit.collider.isTrigger &&
                     (triggerHit.collider.CompareTag("Scanner") || triggerHit.collider.CompareTag("LeverL") || triggerHit.collider.CompareTag("LadderHandle")))
                 {
@@ -56,12 +56,11 @@ public class GripclawPhysics : MonoBehaviour
                 }
             }
 
-            // 2. ПРОВЕРКА НА ТВЕРДЫЕ СТЕНЫ И КОРОБКИ (Игнорируем чекпоинты)
+            // 2. ПРОВЕРКА НА ТВЕРДЫЕ СТЕНЫ И КОРОБКИ
             if (Physics.SphereCast(hand.handTransform.position, manager.collisionRadius, shootDirection, out RaycastHit hit, stepDistance, layerMask, QueryTriggerInteraction.Ignore))
             {
                 if (hit.collider.transform != manager.playerTransform && !hit.collider.transform.IsChildOf(manager.playerTransform))
                 {
-                    // Твердые объекты (стены, коробки, перекладины)
                     if (hit.collider.CompareTag("Scanner") || hit.collider.CompareTag(manager.draggableTag) ||
                         hit.collider.CompareTag("LeverL") || hit.collider.CompareTag("LadderHandle") ||
                         hit.collider.CompareTag("GripBar"))
@@ -71,7 +70,11 @@ public class GripclawPhysics : MonoBehaviour
                         yield return StartCoroutine(HandleAttachment(hand, hit));
                         goto ReturnLabel;
                     }
-                    else break; // Врезались в обычную стену — возвращаем руку
+                    else
+                    {
+                        if (audioModule != null) audioModule.PlayDetachAudio(hand);
+                        break;
+                    }
                 }
             }
 
@@ -80,39 +83,34 @@ public class GripclawPhysics : MonoBehaviour
             yield return null;
         }
 
-
     ReturnLabel:
         hand.isFlying = true;
         hand.isAttached = false;
         hand.handTransform.SetParent(null);
+
+        if (audioModule != null) audioModule.PlayReturnAudio(hand);
 
         // ВОЗВРАТ СТРОГО ПО ПУТИ НАМОТКИ (Разматывание углов)
         while (hand.bendPoints.Count > 0 || Vector3.Distance(hand.handTransform.position, hand.startPoint.position) > 0.3f)
         {
             if (!hand.gameObject.activeInHierarchy) break;
 
-            // Определяем текущую промежуточную цель для ладони
-            // Если есть углы — летим к самому ПОСЛЕДНЕМУ углу. Если углов нет — летим к плечу игрока.
             Vector3 currentTargetPos = hand.bendPoints.Count > 0
                 ? hand.bendPoints[hand.bendPoints.Count - 1]
                 : hand.startPoint.position;
 
-            // Двигаем руку к текущей цели
             hand.handTransform.position = Vector3.MoveTowards(
                 hand.handTransform.position,
                 currentTargetPos,
                 manager.returnSpeed * Time.deltaTime
             );
 
-            // Плавно разворачиваем руку в сторону ее «гнезда» на плече
             hand.handTransform.rotation = Quaternion.Slerp(
                 hand.handTransform.rotation,
                 hand.startPoint.rotation,
                 manager.returnSpeed * 0.2f * Time.deltaTime
             );
 
-            // Если ладонь вплотную подлетела к текущему углу — удаляем этот угол из списка. 
-            // В следующем кадре рука начнет лететь к предыдущему углу или к игроку.
             if (hand.bendPoints.Count > 0 && Vector3.Distance(hand.handTransform.position, currentTargetPos) < 0.4f)
             {
                 hand.bendPoints.RemoveAt(hand.bendPoints.Count - 1);
@@ -121,7 +119,7 @@ public class GripclawPhysics : MonoBehaviour
             yield return null;
         }
 
-        // Когда рука окончательно вернулась к плечу
+        if (audioModule != null) audioModule.StopAudio(hand);
         hand.ResetHandState();
     }
 
@@ -131,6 +129,19 @@ public class GripclawPhysics : MonoBehaviour
         hand.isFlying = false;
         hand.handTransform.SetParent(hit.transform);
         hand.attachedRB = hit.collider.GetComponent<Rigidbody>();
+
+        // Идеальное магнитное выравнивание лапки по центру сканера (ищем в родителе, если коллайдер на дочернем объекте)
+        if (hit.collider.CompareTag("Scanner"))
+        {
+            Scanner scanner = hit.collider.GetComponentInParent<Scanner>();
+            if (scanner != null && scanner.handSnapPoint != null)
+            {
+                hand.handTransform.position = scanner.handSnapPoint.position;
+                hand.handTransform.rotation = scanner.handSnapPoint.rotation;
+            }
+        }
+
+        if (audioModule != null) audioModule.PlayAttachAudio(hand);
 
         if (hit.collider.CompareTag("GripBar"))
         {
@@ -167,14 +178,15 @@ public class GripclawPhysics : MonoBehaviour
                 movement.StopPulling();
             }
 
+            if (audioModule != null) audioModule.PlayDetachAudio(hand);
             manager.SetDetachCooldown();
             hand.isAttached = false;
             hand.handTransform.SetParent(null);
             yield break;
         }
 
-        LeftLever leftLever = hit.collider.GetComponent<LeftLever>();
-        hand.activeInteractable = hit.collider.GetComponent<IGripInteractable>();
+        LeftLever leftLever = hit.collider.GetComponentInParent<LeftLever>();
+        hand.activeInteractable = hit.collider.GetComponentInParent<IGripInteractable>();
 
         if (hand.activeInteractable != null) hand.activeInteractable.OnGripStart(hand.inputButton);
 
@@ -191,29 +203,34 @@ public class GripclawPhysics : MonoBehaviour
         {
             if (!hand.handTransform.gameObject.activeInHierarchy || hit.collider == null) break;
 
-            float currentDist = Vector3.Distance(hand.startPoint.position, hand.handTransform.position);
-            if (currentDist > manager.maxDistance + 5f || currentDist < 3.2f) break;
+            // Пока игрок зажимает кнопку — рука держится до последнего
+            if (!Input.GetMouseButton(hand.inputButton)) break;
 
-            if (Input.GetMouseButton(hand.inputButton))
+            float directDist = Vector3.Distance(hand.startPoint.position, hand.handTransform.position);
+            if (hand.bendPoints.Count == 0 && directDist < 3.2f) break;
+
+            pressTimer += Time.deltaTime;
+            if (leftLever != null)
             {
-                pressTimer += Time.deltaTime;
-                if (leftLever != null)
-                {
-                    leftLever.PullLever();
-                }
-                else if (pressTimer > 0.15f && hand.attachedRB != null)
-                {
-                    Vector3 dir = hand.startPoint.position - hand.handTransform.position;
-                    hand.attachedRB.AddForce(dir.normalized * manager.pullStrength, ForceMode.Acceleration);
-                }
+                leftLever.PullLever();
             }
-            else break;
+            else if (pressTimer > 0.15f && hand.attachedRB != null)
+            {
+                Vector3 pullTarget = hand.bendPoints.Count > 0
+                    ? hand.bendPoints[hand.bendPoints.Count - 1]
+                    : hand.startPoint.position;
+
+                Vector3 dir = pullTarget - hand.handTransform.position;
+                hand.attachedRB.AddForce(dir.normalized * manager.pullStrength, ForceMode.Acceleration);
+            }
 
             yield return null;
         }
 
         if (leftLever != null) leftLever.ResetLever();
         if (hand.activeInteractable != null) hand.activeInteractable.OnGripStop();
+
+        if (audioModule != null) audioModule.PlayDetachAudio(hand);
 
         manager.SetDetachCooldown();
         hand.isAttached = false;

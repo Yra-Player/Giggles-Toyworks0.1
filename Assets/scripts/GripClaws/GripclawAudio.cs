@@ -2,6 +2,20 @@ using UnityEngine;
 
 public class GripclawAudio : MonoBehaviour
 {
+    [Header("Настройки скорости и тона (Pitch)")]
+    [Tooltip("Начальная скорость звука вылета лебедки")]
+    public float flyStartPitch = 1.35f;
+
+    [Tooltip("Максимальная скорость звука вылета при полном натяжении")]
+    public float flyMaxPitch = 1.65f;
+
+    [Tooltip("Скорость звука сматывания троса обратно")]
+    public float returnPitch = 1.55f;
+
+    [Tooltip("Тональность звука отлипания (меньше 1 = грубее и ниже)")]
+    [Range(0.4f, 1.2f)]
+    public float detachPitch = 0.72f;
+
     private GripclawsManager manager;
 
     void Awake()
@@ -9,36 +23,33 @@ public class GripclawAudio : MonoBehaviour
         manager = GetComponent<GripclawsManager>();
     }
 
-    // 1. ЗВУК ВЫЛЕТА (С динамическим натяжением)
+    // 1. ЗВУК ВЫЛЕТА (Ускоренная лебедка + динамическое натяжение)
     public void PlayFlyAudio(GripclawHand hand)
     {
         if (hand == null || hand.audioSource == null || hand.flySound == null) return;
 
         hand.audioSource.clip = hand.flySound;
         hand.audioSource.loop = true;
-        hand.audioSource.pitch = 1f; // Сбрасываем тон в дефолт
+        hand.audioSource.pitch = flyStartPitch;
         hand.audioSource.Play();
     }
 
-    // Этот метод менеджер будет вызывать в LateUpdate, чтобы менять звук по мере натяжения троса
     public void UpdateFlyTensionAudio(GripclawHand hand)
     {
         if (hand == null || !hand.isFlying || hand.audioSource == null || hand.flySound == null) return;
+        if (hand.audioSource.clip != hand.flySound) return;
 
-        // Считаем, на сколько процентов рука отлетела от игрока (от 0 до 1)
         float currentDist = Vector3.Distance(hand.startPoint.position, hand.handTransform.position);
         float tensionRatio = Mathf.Clamp01(currentDist / manager.maxDistance);
 
-        // Идея натяжения: чем дальше летит рука, тем выше становится тон звука (от 1.0 до 1.25)
-        // Это создаст крутой аудио-эффект натягивающегося провода
-        hand.audioSource.pitch = Mathf.Lerp(1f, 1.25f, tensionRatio);
+        hand.audioSource.pitch = Mathf.Lerp(flyStartPitch, flyMaxPitch, tensionRatio);
     }
 
     // 2. ЗВУК ЗАЦЕПА (Удар ладони о предмет)
     public void PlayAttachAudio(GripclawHand hand)
     {
         if (hand == null || hand.audioSource == null) return;
-        hand.audioSource.Stop(); // Тушим звук полета
+        hand.audioSource.Stop();
         hand.audioSource.loop = false;
         hand.audioSource.pitch = 1f;
 
@@ -48,24 +59,25 @@ public class GripclawAudio : MonoBehaviour
         }
     }
 
-    // 3. ЗВУК СМОТКИ (Возврат ладони домой)
+    // 3. ЗВУК СМОТКИ (Ускоренный возврат ладони домой)
     public void PlayReturnAudio(GripclawHand hand)
     {
         if (hand == null || hand.audioSource == null || hand.returnSound == null) return;
 
         hand.audioSource.clip = hand.returnSound;
         hand.audioSource.loop = true;
-        hand.audioSource.pitch = 1.1f; // Звук возврата сделаем чуть быстрее дефолта
+        hand.audioSource.pitch = returnPitch;
         hand.audioSource.Play();
     }
 
-    // 4. ЗВУК ОТЦЕПЛЕНИЯ
+    // 4. ЗВУК ОТЦЕПЛЕНИЯ (Пониженный грубый щелчок)
     public void PlayDetachAudio(GripclawHand hand)
     {
         if (hand == null || hand.audioSource == null) return;
-        // Проигрываем короткий щелчок отцепления, не ломая текущие звуки смотки, если они накладываются
+
         if (hand.detachSound != null)
         {
+            hand.audioSource.pitch = detachPitch;
             hand.audioSource.PlayOneShot(hand.detachSound);
         }
     }
@@ -76,6 +88,7 @@ public class GripclawAudio : MonoBehaviour
         if (hand != null && hand.audioSource != null)
         {
             hand.audioSource.Stop();
+            hand.audioSource.pitch = 1f;
         }
     }
 }

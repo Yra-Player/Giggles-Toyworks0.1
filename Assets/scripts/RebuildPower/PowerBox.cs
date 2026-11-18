@@ -1,24 +1,34 @@
 ﻿using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Events;
 
 public class PowerBox : MonoBehaviour, IGripInteractable
 {
-    public ScannerPower targetScan;
-    public ParticleSystem sparksEffect; //это на будущее для эффектов
+    [Header("Настройки щитка")]
+    public Scanner targetScan;
+    public float timeToFix = 2.0f;
+    public ParticleSystem sparksEffect;
+
+    [Header("События при починке")]
+    public UnityEvent onPowerFixedUnity; // Сюда можно привязать обратное включение света
 
     private Coroutine _powerRoutine;
+    private bool _isFixed = false;
 
-    public void StartProvidingPower()
+    public void OnGripStart(int mouseButton)
     {
+        if (_isFixed) return;
+
         if (_powerRoutine == null)
         {
             _powerRoutine = StartCoroutine(PowerTickRoutine());
         }
     }
 
-    public void StopProvidingPower()
+    public void OnGripStop()
     {
+        if (_isFixed) return;
+
         if (_powerRoutine != null)
         {
             StopCoroutine(_powerRoutine);
@@ -30,39 +40,29 @@ public class PowerBox : MonoBehaviour, IGripInteractable
     private IEnumerator PowerTickRoutine()
     {
         float chargeTimer = 0f;
-        float timeToFix = 2.0f;
 
-        // Визуальный тест: меняем цвет щитка на желтый, пока чиним
-        Renderer renderer = GetComponent<Renderer>();
-        Color originalColor = renderer != null ? renderer.material.color : Color.white;
-        if (renderer != null) renderer.material.color = Color.yellow;
+        Renderer rend = GetComponent<Renderer>();
+        if (rend != null) rend.material.color = Color.yellow;
 
         if (sparksEffect != null) sparksEffect.Play();
 
         while (chargeTimer < timeToFix)
         {
             chargeTimer += Time.deltaTime;
-
-            // ВЫВОД В КОНСОЛЬ: Ты увидишь проценты внизу экрана Unity
-            Debug.Log($"<color=yellow>ЗАРЯДКА ЩИТКА: {Mathf.Round((chargeTimer / timeToFix) * 100)}%</color>");
-
             yield return null;
         }
 
-        // КОГДА ЗАКОНЧИЛИ:
+        _isFixed = true;
+        _powerRoutine = null;
+
         if (targetScan != null)
         {
-            targetScan.Restore();
-            targetScan.SetPermanentPower();
+            targetScan.RestorePower();
         }
 
-        if (renderer != null) renderer.material.color = Color.green; // Стал зеленым - значит починен
+        if (rend != null) rend.material.color = Color.green;
         if (sparksEffect != null) sparksEffect.Stop();
 
-        Debug.Log("<color=green>⚡ ПИТАНИЕ ВОССТАНОВЛЕНО НАВСЕГДА!</color>");
-        _powerRoutine = null;
+        onPowerFixedUnity?.Invoke();
     }
-
-    public void OnGripStart(int mouseButton) => StartProvidingPower();
-    public void OnGripStop() => StopProvidingPower();
 }

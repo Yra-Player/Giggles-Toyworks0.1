@@ -8,6 +8,8 @@ public class GripclawHand : MonoBehaviour
     public int inputButton = 0;
     public Transform handTransform;
     public Transform startPoint;
+    public Transform ropeStartPoint;
+    public Transform shoulder;
     public LineRenderer rope;
     public Transform ropeCylinder;
 
@@ -34,6 +36,24 @@ public class GripclawHand : MonoBehaviour
 
         Rigidbody rb = handTransform.GetComponent<Rigidbody>();
         if (rb != null) rb.isKinematic = true;
+    }
+
+    // Считает реальную израсходованную длину кабеля со всеми изгибами
+    public float GetTotalCableLength()
+    {
+        if (handTransform == null) return 0f;
+
+        Vector3 currentPoint = ropeStartPoint != null ? ropeStartPoint.position : startPoint.position;
+        float totalLength = 0f;
+
+        for (int i = 0; i < bendPoints.Count; i++)
+        {
+            totalLength += Vector3.Distance(currentPoint, bendPoints[i]);
+            currentPoint = bendPoints[i];
+        }
+
+        totalLength += Vector3.Distance(currentPoint, handTransform.position);
+        return totalLength;
     }
 
     public void ResetHandState()
